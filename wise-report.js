@@ -36,6 +36,14 @@ function toNumber(value) {
   return cleaned ? Number(cleaned) : NaN;
 }
 
+function parseTargetPriceChange(value) {
+  const text = decodeHtml(value);
+  if (/typ1\.gif|목표주가\s*상향/.test(text)) return "상향";
+  if (/typ3\.gif|목표주가\s*하향/.test(text)) return "하향";
+  if (/typ2\.gif|변동없음/.test(text)) return "변동없음";
+  return "";
+}
+
 async function fetchWiseReportHtml(dateValue) {
   const url = new URL(WISE_REPORT_URL);
   url.searchParams.set("fmt", "1");
@@ -69,6 +77,7 @@ function parseReportRows(html) {
       const code = stockMatch[2];
       const broker = stripTags(cells[1]).replace(/\[[^\]]+\]/g, "").trim();
       const opinion = stripTags(cells[2]);
+      const targetPriceChange = parseTargetPriceChange(cells[3]);
       const targetPrice = toNumber(cells[3]);
       const currentClose = toNumber(cells[4]);
       const title = stripTags(cells[5]);
@@ -79,6 +88,8 @@ function parseReportRows(html) {
         code,
         broker,
         opinion,
+        targetPriceChange,
+        targetPriceRaised: targetPriceChange === "상향",
         targetPrice,
         currentClose,
         upsideAmount: targetPrice - currentClose,
@@ -100,7 +111,10 @@ async function fetchBuyRecommendations(params = new URLSearchParams()) {
   const allReports = parseReportRows(html);
   const results = allReports
     .filter(
-      (row) => isBuyOpinion(row.opinion) && row.targetPrice > row.currentClose
+      (row) =>
+        isBuyOpinion(row.opinion) &&
+        row.targetPriceRaised &&
+        row.targetPrice > row.currentClose
     )
     .sort((a, b) => b.upsidePct - a.upsidePct);
 

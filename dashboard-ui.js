@@ -220,7 +220,7 @@ function renderDashboard() {
     <section class="reportbar">
       <div>
         <h2>매수추천</h2>
-        <div class="sub">WiseReport 기업 리포트에서 검색일 기준 투자의견이 매수이고 목표가격이 현재종가보다 높은 종목만 추립니다.</div>
+        <div class="sub">WiseReport 기업 리포트에서 검색일 기준 투자의견이 매수이고 목표주가가 상향된 종목만 추립니다.</div>
       </div>
       <div class="reportActions">
         <label>검색일<input id="buyDate" type="date"></label>
@@ -233,12 +233,12 @@ function renderDashboard() {
       <table>
         <thead>
           <tr>
-            <th>종목명</th><th>코드</th><th>투자의견</th><th>목표가격</th><th>현재종가</th>
+            <th>종목명</th><th>코드</th><th>투자의견</th><th>목표주가변동</th><th>목표가격</th><th>현재종가</th>
             <th>상승여력</th><th>상승률</th><th>증권사</th><th>리포트명</th>
           </tr>
         </thead>
         <tbody id="buyRecommendations">
-          <tr><td colspan="9" class="muted">아직 검색 결과가 없습니다.</td></tr>
+          <tr><td colspan="10" class="muted">아직 검색 결과가 없습니다.</td></tr>
         </tbody>
       </table>
     </div>
@@ -370,6 +370,7 @@ function renderDashboard() {
         "<td><a href='" + url + "' target='_blank' rel='noreferrer'>" + row.stockName + "</a></td>" +
         "<td>" + row.code + "</td>" +
         "<td>" + row.opinion + "</td>" +
+        "<td class='up'>" + row.targetPriceChange + "</td>" +
         "<td>" + price(row.targetPrice) + "</td>" +
         "<td>" + price(row.currentClose) + "</td>" +
         "<td class='up'>" + price(row.upsideAmount) + "</td>" +
@@ -382,14 +383,14 @@ function renderDashboard() {
     function renderBuyRecommendations(rows) {
       buyRecommendations.innerHTML = rows.length
         ? rows.map(buyRowHtml).join("")
-        : "<tr><td colspan='9' class='muted'>검색일에 조건을 만족하는 매수추천 종목이 없습니다.</td></tr>";
+        : "<tr><td colspan='10' class='muted'>검색일에 조건을 만족하는 매수추천 종목이 없습니다.</td></tr>";
     }
 
     async function runBuyRecommendations() {
       syncBuyDownload();
       buyRun.disabled = true;
       buyStatus.textContent = "WiseReport 매수추천 목록을 읽는 중입니다...";
-      buyRecommendations.innerHTML = "<tr><td colspan='9' class='muted'>로딩 중</td></tr>";
+      buyRecommendations.innerHTML = "<tr><td colspan='10' class='muted'>로딩 중</td></tr>";
       try {
         const started = performance.now();
         const res = await fetch("/api/buy-recommendations?date=" + encodeURIComponent(buyDateValue()));
@@ -399,10 +400,10 @@ function renderDashboard() {
         renderBuyRecommendations(data.results);
         buyStatus.textContent =
           "검색일 " + data.reportDate + " / 리포트 " + fmt.format(data.scanned) +
-          "건 중 매수추천 " + fmt.format(data.results.length) + "건 / " + seconds + "초";
+          "건 중 목표주가 상향 매수추천 " + fmt.format(data.results.length) + "건 / " + seconds + "초";
       } catch (error) {
         buyStatus.textContent = "매수추천 검색 오류: " + error.message;
-        buyRecommendations.innerHTML = "<tr><td colspan='9' class='muted'>검색 실패</td></tr>";
+        buyRecommendations.innerHTML = "<tr><td colspan='10' class='muted'>검색 실패</td></tr>";
       } finally {
         buyRun.disabled = false;
       }
