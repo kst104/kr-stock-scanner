@@ -219,15 +219,15 @@ function renderDashboard() {
       <div class="tableWrap">
         <h3>산업리포트</h3>
         <table>
-          <thead><tr><th>리포트명</th><th>증권사</th><th>날짜</th><th>링크</th></tr></thead>
-          <tbody id="industryReports"><tr><td colspan="4" class="muted">아직 수집 결과가 없습니다.</td></tr></tbody>
+          <thead><tr><th>산업명</th><th>리포트명</th><th>증권사</th><th>날짜</th><th>링크</th></tr></thead>
+          <tbody id="industryReports"><tr><td colspan="5" class="muted">아직 수집 결과가 없습니다.</td></tr></tbody>
         </table>
       </div>
       <div class="tableWrap">
         <h3>기업리포트</h3>
         <table>
-          <thead><tr><th>리포트명</th><th>증권사</th><th>날짜</th><th>링크</th></tr></thead>
-          <tbody id="companyReports"><tr><td colspan="4" class="muted">아직 수집 결과가 없습니다.</td></tr></tbody>
+          <thead><tr><th>기업명</th><th>리포트명</th><th>증권사</th><th>날짜</th><th>링크</th></tr></thead>
+          <tbody id="companyReports"><tr><td colspan="5" class="muted">아직 수집 결과가 없습니다.</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -289,7 +289,9 @@ function renderDashboard() {
 
     function reportRowHtml(row) {
       const link = row.pdfUrl || row.detailUrl;
+      const subject = row.subjectName || row.companyName || row.industryName || row.category || "";
       return "<tr>" +
+        "<td>" + subject + "</td>" +
         "<td>" + row.title + "</td>" +
         "<td>" + row.securities + "</td>" +
         "<td>" + row.date + "</td>" +
@@ -302,10 +304,10 @@ function renderDashboard() {
       const company = reports.filter((row) => row.type === "company");
       industryReports.innerHTML = industry.length
         ? industry.map(reportRowHtml).join("")
-        : "<tr><td colspan='4' class='muted'>오늘 산업리포트가 없습니다.</td></tr>";
+        : "<tr><td colspan='5' class='muted'>오늘 산업리포트가 없습니다.</td></tr>";
       companyReports.innerHTML = company.length
         ? company.map(reportRowHtml).join("")
-        : "<tr><td colspan='4' class='muted'>오늘 기업리포트가 없습니다.</td></tr>";
+        : "<tr><td colspan='5' class='muted'>오늘 기업리포트가 없습니다.</td></tr>";
     }
 
     async function runReports() {

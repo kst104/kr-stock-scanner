@@ -83,6 +83,7 @@ function parseRows(html, type, page) {
       if (!titleMatch || !date) return null;
 
       const title = stripTags(titleMatch[2]);
+      const category = stripTags(cells[0]);
       const detailPath = decodeHtml(titleMatch[1]);
       const detailUrl = detailPath.startsWith("http")
         ? detailPath
@@ -90,7 +91,10 @@ function parseRows(html, type, page) {
 
       return {
         type,
-        category: stripTags(cells[0]),
+        category,
+        subjectName: category,
+        companyName: type === "company" ? category : "",
+        industryName: type === "industry" ? category : "",
         title,
         securities: stripTags(cells[2]),
         date,
@@ -135,7 +139,9 @@ async function downloadReports(reports, baseDir, folderDate) {
     }
 
     const prefix = report.type === "industry" ? "산업" : "기업";
-    const fileName = `${prefix}_${report.securities}_${sanitizeFileName(report.title)}.pdf`;
+    const subject = sanitizeFileName(report.subjectName || report.category || "");
+    const subjectPart = subject ? `_${subject}` : "";
+    const fileName = `${prefix}${subjectPart}_${report.securities}_${sanitizeFileName(report.title)}.pdf`;
     const filePath = path.join(dirs[report.type], fileName);
 
     try {
