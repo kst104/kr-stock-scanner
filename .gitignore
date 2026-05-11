@@ -1,0 +1,9 @@
+node_modules/
+npm-debug.log*
+*.log
+monitor.pid
+monitor-state.json
+gmail-monitor-state.json
+recipients.json
+.env
+.DS_Store
