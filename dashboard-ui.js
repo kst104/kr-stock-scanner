@@ -52,6 +52,21 @@ function renderDashboard() {
     }
     .toolbar { grid-template-columns: repeat(4, minmax(120px, 1fr)) auto auto auto; }
     .emailbar { grid-template-columns: minmax(220px, 1fr) auto minmax(260px, 2fr); }
+    .reportbar {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .reportbar h2 {
+      margin: 0 0 4px;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
     label {
       display: grid;
       gap: 5px;
@@ -106,6 +121,19 @@ function renderDashboard() {
       border: 1px solid var(--line);
       border-radius: 8px;
     }
+    .reportGrid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .reportGrid table { min-width: 620px; }
+    .reportGrid h3 {
+      margin: 0;
+      padding: 10px 12px;
+      font-size: 14px;
+      background: #f9fafb;
+      border-bottom: 1px solid var(--line);
+    }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -137,6 +165,8 @@ function renderDashboard() {
       header, main { padding-left: 14px; padding-right: 14px; }
       .toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .emailbar { grid-template-columns: 1fr; }
+      .reportbar { grid-template-columns: 1fr; }
+      .reportGrid { grid-template-columns: 1fr; }
       button, .download { width: 100%; }
     }
   </style>
@@ -177,6 +207,30 @@ function renderDashboard() {
         </tbody>
       </table>
     </div>
+    <section class="reportbar">
+      <div>
+        <h2>증권리포트</h2>
+        <div class="sub">네이버 증권 산업리포트/기업리포트를 오늘 날짜 기준으로 수집해 C:\\증권리포트분석에 저장합니다.</div>
+      </div>
+      <button id="reportRun" type="button" class="secondary">오늘 리포트 수집</button>
+    </section>
+    <div class="status" id="reportStatus">매일 오전 10시에 자동 수집되도록 설정됩니다.</div>
+    <div class="reportGrid">
+      <div class="tableWrap">
+        <h3>산업리포트</h3>
+        <table>
+          <thead><tr><th>리포트명</th><th>증권사</th><th>날짜</th><th>링크</th></tr></thead>
+          <tbody id="industryReports"><tr><td colspan="4" class="muted">아직 수집 결과가 없습니다.</td></tr></tbody>
+        </table>
+      </div>
+      <div class="tableWrap">
+        <h3>기업리포트</h3>
+        <table>
+          <thead><tr><th>리포트명</th><th>증권사</th><th>날짜</th><th>링크</th></tr></thead>
+          <tbody id="companyReports"><tr><td colspan="4" class="muted">아직 수집 결과가 없습니다.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
   </main>
   <script>
     const form = document.querySelector("#form");
@@ -187,6 +241,10 @@ function renderDashboard() {
     const statusEl = document.querySelector("#status");
     const tbody = document.querySelector("#tbody");
     const recipientsEl = document.querySelector("#recipients");
+    const reportRun = document.querySelector("#reportRun");
+    const reportStatus = document.querySelector("#reportStatus");
+    const industryReports = document.querySelector("#industryReports");
+    const companyReports = document.querySelector("#companyReports");
     const fmt = new Intl.NumberFormat("ko-KR");
     let realtimeTimer = null;
     let realtimeOn = false;
@@ -227,6 +285,45 @@ function renderDashboard() {
       const res = await fetch("/api/recipients");
       const data = await res.json();
       recipientsEl.textContent = "Gmail 수신자: " + data.recipients.join(", ");
+    }
+
+    function reportRowHtml(row) {
+      const link = row.pdfUrl || row.detailUrl;
+      return "<tr>" +
+        "<td>" + row.title + "</td>" +
+        "<td>" + row.securities + "</td>" +
+        "<td>" + row.date + "</td>" +
+        "<td><a href='" + link + "' target='_blank' rel='noreferrer'>열기</a></td>" +
+      "</tr>";
+    }
+
+    function renderReports(reports) {
+      const industry = reports.filter((row) => row.type === "industry");
+      const company = reports.filter((row) => row.type === "company");
+      industryReports.innerHTML = industry.length
+        ? industry.map(reportRowHtml).join("")
+        : "<tr><td colspan='4' class='muted'>오늘 산업리포트가 없습니다.</td></tr>";
+      companyReports.innerHTML = company.length
+        ? company.map(reportRowHtml).join("")
+        : "<tr><td colspan='4' class='muted'>오늘 기업리포트가 없습니다.</td></tr>";
+    }
+
+    async function runReports() {
+      reportRun.disabled = true;
+      reportStatus.textContent = "오늘 리포트를 수집하고 PDF를 다운로드하는 중입니다...";
+      try {
+        const res = await fetch("/api/reports/run", { method: "POST" });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        renderReports(data.reports);
+        reportStatus.textContent =
+          "저장 완료: 산업리포트 " + data.industryCount + "개, 기업리포트 " +
+          data.companyCount + "개, PDF " + data.downloadedCount + "개 / " + data.dayDir;
+      } catch (error) {
+        reportStatus.textContent = "리포트 수집 오류: " + error.message;
+      } finally {
+        reportRun.disabled = false;
+      }
     }
 
     async function runScan(event, source = "manual") {
@@ -274,6 +371,7 @@ function renderDashboard() {
     form.addEventListener("submit", runScan);
     form.addEventListener("input", syncDownload);
     realtime.addEventListener("click", toggleRealtime);
+    reportRun.addEventListener("click", runReports);
     emailForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       const email = document.querySelector("#email").value.trim();

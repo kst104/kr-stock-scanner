@@ -37,5 +37,7 @@ This repository includes `render.yaml`, so Render can deploy it as a Blueprint:
 
 - The dashboard scans Naver Finance from the server at request time.
 - CSV download is available at `/api/scan.csv`.
+- Naver research report collection is available at `/api/reports/run` and through `report-scraper.js`.
+- The default local report output path is `C:\증권리포트분석\YYYYMMDD\산업리포트` and `C:\증권리포트분석\YYYYMMDD\기업리포트`.
 - Extra email recipients are stored in `recipients.json` on the running server. On most free hosts, filesystem writes may reset after redeploy/restart.
 - The Codex Gmail automation runs from this Codex thread, not from the deployed web server. If you want email monitoring to run fully in the cloud, add a hosted scheduler and Gmail/API mail sender.
