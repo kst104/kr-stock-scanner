@@ -4,6 +4,7 @@ const path = require("path");
 const { URL } = require("url");
 const { renderDashboard } = require("./dashboard-ui");
 const { runReportCollection } = require("./report-scraper");
+const { fetchBuyRecommendations } = require("./wise-report");
 
 const PORT = process.env.PORT || 3000;
 const RECIPIENTS_FILE = path.join(__dirname, "recipients.json");
@@ -287,6 +288,19 @@ function scanToCsv(data) {
   return `\uFEFF${[header, ...rows].join("\r\n")}\r\n`;
 }
 
+function buyRecommendationsToCsv(data) {
+  const columns = [
+    ["stockName", "종목명"],
+    ["targetPrice", "목표가격"],
+    ["currentClose", "현재종가"],
+  ];
+  const header = columns.map(([, label]) => csvValue(label)).join(",");
+  const rows = data.results.map((row) =>
+    columns.map(([key]) => csvValue(row[key])).join(",")
+  );
+  return `\uFEFF${[header, ...rows].join("\r\n")}\r\n`;
+}
+
 async function readRequestJson(req) {
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
@@ -538,6 +552,21 @@ function startServer() {
           "Content-Disposition": "attachment; filename=\"kr-stock-scanner.csv\"",
         });
         res.end(scanToCsv(data));
+        return;
+      }
+      if (url.pathname === "/api/buy-recommendations") {
+        const data = await fetchBuyRecommendations(url.searchParams);
+        res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify(data));
+        return;
+      }
+      if (url.pathname === "/api/buy-recommendations.csv") {
+        const data = await fetchBuyRecommendations(url.searchParams);
+        res.writeHead(200, {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": "attachment; filename=\"buy-recommendations.csv\"",
+        });
+        res.end(buyRecommendationsToCsv(data));
         return;
       }
       if (url.pathname === "/api/recipients" && req.method === "GET") {

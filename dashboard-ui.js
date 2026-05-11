@@ -67,6 +67,14 @@ function renderDashboard() {
       font-size: 16px;
       letter-spacing: 0;
     }
+    .reportActions {
+      display: flex;
+      gap: 8px;
+      align-items: end;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+    .reportActions label { min-width: 160px; }
     label {
       display: grid;
       gap: 5px;
@@ -166,6 +174,8 @@ function renderDashboard() {
       .toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .emailbar { grid-template-columns: 1fr; }
       .reportbar { grid-template-columns: 1fr; }
+      .reportActions { justify-content: stretch; }
+      .reportActions label { min-width: 0; }
       .reportGrid { grid-template-columns: 1fr; }
       button, .download { width: 100%; }
     }
@@ -209,6 +219,31 @@ function renderDashboard() {
     </div>
     <section class="reportbar">
       <div>
+        <h2>매수추천</h2>
+        <div class="sub">WiseReport 기업 리포트에서 검색일 기준 투자의견이 매수이고 목표가격이 현재종가보다 높은 종목만 추립니다.</div>
+      </div>
+      <div class="reportActions">
+        <label>검색일<input id="buyDate" type="date"></label>
+        <button id="buyRun" type="button" class="secondary">매수추천 검색</button>
+        <a id="buyDownload" class="download ghost" href="/api/buy-recommendations.csv">CSV 다운로드</a>
+      </div>
+    </section>
+    <div class="status" id="buyStatus">검색 버튼을 누르면 WiseReport 매수추천 목록을 읽습니다.</div>
+    <div class="tableWrap">
+      <table>
+        <thead>
+          <tr>
+            <th>종목명</th><th>코드</th><th>투자의견</th><th>목표가격</th><th>현재종가</th>
+            <th>상승여력</th><th>상승률</th><th>증권사</th><th>리포트명</th>
+          </tr>
+        </thead>
+        <tbody id="buyRecommendations">
+          <tr><td colspan="9" class="muted">아직 검색 결과가 없습니다.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <section class="reportbar">
+      <div>
         <h2>증권리포트</h2>
         <div class="sub">네이버 증권 산업리포트/기업리포트를 오늘 날짜 기준으로 수집해 C:\\증권리포트분석에 저장합니다.</div>
       </div>
@@ -245,6 +280,11 @@ function renderDashboard() {
     const reportStatus = document.querySelector("#reportStatus");
     const industryReports = document.querySelector("#industryReports");
     const companyReports = document.querySelector("#companyReports");
+    const buyDate = document.querySelector("#buyDate");
+    const buyRun = document.querySelector("#buyRun");
+    const buyDownload = document.querySelector("#buyDownload");
+    const buyStatus = document.querySelector("#buyStatus");
+    const buyRecommendations = document.querySelector("#buyRecommendations");
     const fmt = new Intl.NumberFormat("ko-KR");
     let realtimeTimer = null;
     let realtimeOn = false;
@@ -255,6 +295,20 @@ function renderDashboard() {
 
     function syncDownload() {
       download.href = "/api/scan.csv?" + params().toString();
+    }
+
+    function todayInputValue() {
+      const now = new Date();
+      const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+      return local.toISOString().slice(0, 10);
+    }
+
+    function buyDateValue() {
+      return (buyDate.value || todayInputValue()).replaceAll("-", "");
+    }
+
+    function syncBuyDownload() {
+      buyDownload.href = "/api/buy-recommendations.csv?date=" + encodeURIComponent(buyDateValue());
     }
 
     function rowHtml(row) {
@@ -308,6 +362,50 @@ function renderDashboard() {
       companyReports.innerHTML = company.length
         ? company.map(reportRowHtml).join("")
         : "<tr><td colspan='5' class='muted'>오늘 기업리포트가 없습니다.</td></tr>";
+    }
+
+    function buyRowHtml(row) {
+      const url = "https://finance.naver.com/item/main.naver?code=" + row.code;
+      return "<tr>" +
+        "<td><a href='" + url + "' target='_blank' rel='noreferrer'>" + row.stockName + "</a></td>" +
+        "<td>" + row.code + "</td>" +
+        "<td>" + row.opinion + "</td>" +
+        "<td>" + price(row.targetPrice) + "</td>" +
+        "<td>" + price(row.currentClose) + "</td>" +
+        "<td class='up'>" + price(row.upsideAmount) + "</td>" +
+        "<td class='up'>" + pct(row.upsidePct) + "</td>" +
+        "<td>" + row.broker + "</td>" +
+        "<td>" + row.title + "</td>" +
+      "</tr>";
+    }
+
+    function renderBuyRecommendations(rows) {
+      buyRecommendations.innerHTML = rows.length
+        ? rows.map(buyRowHtml).join("")
+        : "<tr><td colspan='9' class='muted'>검색일에 조건을 만족하는 매수추천 종목이 없습니다.</td></tr>";
+    }
+
+    async function runBuyRecommendations() {
+      syncBuyDownload();
+      buyRun.disabled = true;
+      buyStatus.textContent = "WiseReport 매수추천 목록을 읽는 중입니다...";
+      buyRecommendations.innerHTML = "<tr><td colspan='9' class='muted'>로딩 중</td></tr>";
+      try {
+        const started = performance.now();
+        const res = await fetch("/api/buy-recommendations?date=" + encodeURIComponent(buyDateValue()));
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        const seconds = ((performance.now() - started) / 1000).toFixed(1);
+        renderBuyRecommendations(data.results);
+        buyStatus.textContent =
+          "검색일 " + data.reportDate + " / 리포트 " + fmt.format(data.scanned) +
+          "건 중 매수추천 " + fmt.format(data.results.length) + "건 / " + seconds + "초";
+      } catch (error) {
+        buyStatus.textContent = "매수추천 검색 오류: " + error.message;
+        buyRecommendations.innerHTML = "<tr><td colspan='9' class='muted'>검색 실패</td></tr>";
+      } finally {
+        buyRun.disabled = false;
+      }
     }
 
     async function runReports() {
@@ -374,6 +472,8 @@ function renderDashboard() {
     form.addEventListener("input", syncDownload);
     realtime.addEventListener("click", toggleRealtime);
     reportRun.addEventListener("click", runReports);
+    buyRun.addEventListener("click", runBuyRecommendations);
+    buyDate.addEventListener("input", syncBuyDownload);
     emailForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       const email = document.querySelector("#email").value.trim();
@@ -393,6 +493,8 @@ function renderDashboard() {
     });
 
     syncDownload();
+    buyDate.value = todayInputValue();
+    syncBuyDownload();
     loadRecipients().catch(() => {
       recipientsEl.textContent = "수신자 목록을 불러오지 못했습니다.";
     });

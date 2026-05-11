@@ -6,7 +6,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check dashboard-ui.js && node --check monitor.js && node --check report-scraper.js"
+    "check": "node --check server.js && node --check dashboard-ui.js && node --check monitor.js && node --check report-scraper.js && node --check wise-report.js"
   },
   "engines": {
     "node": ">=20"
