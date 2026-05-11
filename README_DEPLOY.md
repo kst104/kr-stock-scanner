@@ -24,6 +24,15 @@ Use these settings:
 - Port: provided by the platform through `PORT`
 - Node version: 20 or newer
 
+## Render Blueprint
+
+This repository includes `render.yaml`, so Render can deploy it as a Blueprint:
+
+1. Open Render Dashboard.
+2. Choose New > Blueprint.
+3. Connect `kst104/kr-stock-scanner`.
+4. Apply the generated service.
+
 ## Notes
 
 - The dashboard scans Naver Finance from the server at request time.
