@@ -184,12 +184,12 @@ function renderDashboard() {
 <body>
   <header>
     <h1>KR Stock Scanner</h1>
-    <div class="sub">기준봉 이후 5일선 이탈 없이, 금일 저가가 3/5일선 근처인 종목을 검색합니다.</div>
+    <div class="sub">오늘 제외 최근 20거래일에서 처음 발생한 10% 이상 양봉만 기준봉으로 인정하고, 이후 5일선 이탈 없이 금일 저가가 3/5일선 근처인 종목을 검색합니다.</div>
   </header>
   <main>
     <form class="toolbar" id="form">
       <label>시총 최소(억원)<input name="minMarketCapEok" type="number" min="0" value="3000"></label>
-      <label>기간(거래일)<input name="windowDays" type="number" min="2" max="20" value="5"></label>
+      <label>기준봉 기간(거래일)<input name="windowDays" type="number" min="2" max="20" value="5"></label>
       <label>기준봉 상승률(%)<input name="minRisePct" type="number" step="0.1" value="10"></label>
       <label>이평 허용폭(%)<input name="touchPct" type="number" step="0.1" value="1"></label>
       <button id="run" type="submit">검색</button>

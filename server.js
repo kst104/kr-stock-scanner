@@ -126,28 +126,37 @@ function movingAverageAt(rows, index, length) {
   return slice.reduce((sum, row) => sum + row.close, 0) / length;
 }
 
+function riseFromOpenPct(row) {
+  return row.open > 0 ? ((row.close - row.open) / row.open) * 100 : -Infinity;
+}
+
+function isTriggerCandle(row, minRisePct) {
+  return riseFromOpenPct(row) >= minRisePct && row.close > row.open;
+}
+
 function evaluate(stock, chart, options) {
   const today = chart.at(-1);
   const previous = chart.at(-2);
-  if (!today || chart.length < Math.max(options.windowDays, 5)) return null;
+  if (!today || chart.length < Math.max(options.windowDays + 1, options.firstTriggerLookbackDays + 1, 5)) return null;
   if (!previous || previous.close <= 0) return null;
   if ([today.open, today.high, today.low, today.close].some((value) => value <= 0)) return null;
 
-  const windowStart = Math.max(0, chart.length - options.windowDays);
-  const triggerCandidates = chart
+  const todayIndex = chart.length - 1;
+  const windowStart = Math.max(0, todayIndex - options.windowDays);
+  const firstTriggerStart = Math.max(0, todayIndex - options.firstTriggerLookbackDays);
+  const rowsWithPct = chart
     .map((row, index) => ({
       ...row,
       index,
-      pct: row.open > 0 ? ((row.close - row.open) / row.open) * 100 : -Infinity,
-    }))
-    .slice(windowStart)
-    .filter(
-      (row) =>
-        row.index < chart.length - 1 &&
-        row.pct >= options.minRisePct &&
-        row.close > row.open
-    );
-  const trigger = triggerCandidates.at(-1);
+      pct: riseFromOpenPct(row),
+    }));
+  const firstTriggerInLookback = rowsWithPct
+    .slice(firstTriggerStart, todayIndex)
+    .find((row) => isTriggerCandle(row, options.minRisePct));
+  const trigger =
+    firstTriggerInLookback && firstTriggerInLookback.index >= windowStart
+      ? firstTriggerInLookback
+      : null;
   const ma3 = movingAverage(chart, 3);
   const ma5 = movingAverage(chart, 5);
   const lowToMa3Pct = ((today.low - ma3) / ma3) * 100;
@@ -211,9 +220,10 @@ async function scan(params) {
     minMarketCapEok: Number(params.get("minMarketCapEok") || 3000),
     minRisePct: Number(params.get("minRisePct") || 10),
     windowDays: Number(params.get("windowDays") || 5),
+    firstTriggerLookbackDays: Number(params.get("firstTriggerLookbackDays") || 20),
     touchPct: Number(params.get("touchPct") || 1),
-    chartCount: 20,
   };
+  options.chartCount = Math.max(40, options.firstTriggerLookbackDays + options.windowDays + 10);
   const stocks = await fetchStocksByMarketCap(options.minMarketCapEok);
   const rows = await mapLimit(stocks, 12, async (stock) => {
     try {
@@ -442,12 +452,12 @@ function formatHtml() {
 <body>
   <header>
     <h1>KR Stock Scanner</h1>
-    <div class="sub">최근 N거래일 안의 10% 이상 양봉을 기준봉으로 잡고, 기준봉 이후 5일선 이탈 없이 당일 저가가 3/5일선 근처인 종목을 찾습니다.</div>
+    <div class="sub">오늘 제외 최근 20거래일에서 처음 발생한 10% 이상 양봉만 기준봉으로 잡고, 기준봉 이후 5일선 이탈 없이 당일 저가가 3/5일선 근처인 종목을 찾습니다.</div>
   </header>
   <main>
     <form class="toolbar" id="form">
       <label>시총 최소(억원)<input name="minMarketCapEok" type="number" min="0" value="3000"></label>
-      <label>기간(거래일)<input name="windowDays" type="number" min="2" max="20" value="5"></label>
+      <label>기준봉 기간(거래일)<input name="windowDays" type="number" min="2" max="20" value="5"></label>
       <label>일봉 상승률 최소(%)<input name="minRisePct" type="number" step="0.1" value="10"></label>
       <label>이평 허용폭(%)<input name="touchPct" type="number" step="0.1" value="1"></label>
       <button id="run" type="submit">검색</button>
