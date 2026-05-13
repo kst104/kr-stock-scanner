@@ -311,6 +311,16 @@ function buyRecommendationsToCsv(data) {
   return `\uFEFF${[header, ...rows].join("\r\n")}\r\n`;
 }
 
+function noStoreHeaders(headers = {}) {
+  return {
+    ...headers,
+    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+    "Surrogate-Control": "no-store",
+  };
+}
+
 async function readRequestJson(req) {
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
@@ -551,44 +561,44 @@ function startServer() {
     try {
       if (url.pathname === "/api/scan") {
         const data = await scan(url.searchParams);
-        res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+        res.writeHead(200, noStoreHeaders({ "Content-Type": "application/json; charset=utf-8" }));
         res.end(JSON.stringify(data));
         return;
       }
       if (url.pathname === "/api/scan.csv") {
         const data = await scan(url.searchParams);
-        res.writeHead(200, {
+        res.writeHead(200, noStoreHeaders({
           "Content-Type": "text/csv; charset=utf-8",
           "Content-Disposition": "attachment; filename=\"kr-stock-scanner.csv\"",
-        });
+        }));
         res.end(scanToCsv(data));
         return;
       }
       if (url.pathname === "/api/buy-recommendations") {
         const data = await fetchBuyRecommendations(url.searchParams);
-        res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+        res.writeHead(200, noStoreHeaders({ "Content-Type": "application/json; charset=utf-8" }));
         res.end(JSON.stringify(data));
         return;
       }
       if (url.pathname === "/api/buy-recommendations.csv") {
         const data = await fetchBuyRecommendations(url.searchParams);
-        res.writeHead(200, {
+        res.writeHead(200, noStoreHeaders({
           "Content-Type": "text/csv; charset=utf-8",
           "Content-Disposition": "attachment; filename=\"buy-recommendations.csv\"",
-        });
+        }));
         res.end(buyRecommendationsToCsv(data));
         return;
       }
       if (url.pathname === "/api/recipients" && req.method === "GET") {
         const recipients = await readRecipients();
-        res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+        res.writeHead(200, noStoreHeaders({ "Content-Type": "application/json; charset=utf-8" }));
         res.end(JSON.stringify({ recipients }));
         return;
       }
       if (url.pathname === "/api/recipients" && req.method === "POST") {
         const body = await readRequestJson(req);
         const recipients = await saveRecipient(body.email);
-        res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+        res.writeHead(200, noStoreHeaders({ "Content-Type": "application/json; charset=utf-8" }));
         res.end(JSON.stringify({ recipients }));
         return;
       }
@@ -597,14 +607,14 @@ function startServer() {
           date: url.searchParams.get("date") || undefined,
           fallbackDays: Number(url.searchParams.get("fallbackDays") || 7),
         });
-        res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+        res.writeHead(200, noStoreHeaders({ "Content-Type": "application/json; charset=utf-8" }));
         res.end(JSON.stringify(data));
         return;
       }
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.writeHead(200, noStoreHeaders({ "Content-Type": "text/html; charset=utf-8" }));
       res.end(renderDashboard());
     } catch (error) {
-      res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+      res.writeHead(500, noStoreHeaders({ "Content-Type": "text/plain; charset=utf-8" }));
       res.end(error.stack || error.message);
     }
   });
