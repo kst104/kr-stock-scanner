@@ -592,8 +592,11 @@ function startServer() {
         res.end(JSON.stringify({ recipients }));
         return;
       }
-      if (url.pathname === "/api/reports/run" && req.method === "POST") {
-        const data = await runReportCollection();
+      if (url.pathname === "/api/reports/run" && (req.method === "POST" || req.method === "GET")) {
+        const data = await runReportCollection({
+          date: url.searchParams.get("date") || undefined,
+          fallbackDays: Number(url.searchParams.get("fallbackDays") || 7),
+        });
         res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
         res.end(JSON.stringify(data));
         return;

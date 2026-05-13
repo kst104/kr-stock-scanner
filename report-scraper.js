@@ -4,7 +4,11 @@ const path = require("path");
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
   "(KHTML, like Gecko) Chrome/124.0 Safari/537.36";
-const BASE_DIR = process.env.REPORT_BASE_DIR || "C:\\증권리포트분석";
+const DEFAULT_BASE_DIR =
+  process.platform === "win32"
+    ? "C:\\증권리포트분석"
+    : path.join("/tmp", "증권리포트분석");
+const BASE_DIR = process.env.REPORT_BASE_DIR || DEFAULT_BASE_DIR;
 const NAVER_RESEARCH = "https://finance.naver.com/research";
 
 function kstDateParts(date = new Date()) {
@@ -30,6 +34,23 @@ function todayFormats(date = new Date()) {
   };
 }
 
+function dateFromValue(value) {
+  return new Date(`${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}T00:00:00+09:00`);
+}
+
+function normalizeDate(value) {
+  if (!value) return new Date();
+  if (value instanceof Date) return value;
+  if (/^\d{8}$/.test(String(value))) return dateFromValue(String(value));
+  return new Date(value);
+}
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
 function decodeHtml(value) {
   return String(value || "")
     .replace(/&amp;/g, "&")
@@ -44,7 +65,7 @@ function decodeHtml(value) {
 }
 
 function stripTags(value) {
-  return decodeHtml(String(value || "").replace(/<[^>]+>/g, ""))
+  return decodeHtml(String(value || "").replace(/<[^>]+>/g, " "))
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -155,23 +176,36 @@ async function downloadReports(reports, baseDir, folderDate) {
   return output;
 }
 
-async function runReportCollection(options = {}) {
-  const { folder, naver } = todayFormats(options.date || new Date());
-  const baseDir = options.baseDir || BASE_DIR;
+async function collectReportsForDate(date) {
+  const formats = todayFormats(date);
   const [industry, company] = await Promise.all([
-    collectList("industry", naver),
-    collectList("company", naver),
+    collectList("industry", formats.naver),
+    collectList("company", formats.naver),
   ]);
-  const allReports = [...industry, ...company];
+  return { formats, industry, company, allReports: [...industry, ...company] };
+}
+
+async function runReportCollection(options = {}) {
+  const fallbackDays = Number(options.fallbackDays || 0);
+  const requestedDate = normalizeDate(options.date || new Date());
+  let collected = null;
+
+  for (let offset = 0; offset <= fallbackDays; offset += 1) {
+    collected = await collectReportsForDate(addDays(requestedDate, -offset));
+    if (collected.allReports.length || fallbackDays === 0) break;
+  }
+
+  const baseDir = options.baseDir || BASE_DIR;
   const reports = options.download === false
-    ? allReports
-    : await downloadReports(allReports, baseDir, folder);
+    ? collected.allReports
+    : await downloadReports(collected.allReports, baseDir, collected.formats.folder);
 
   const summary = {
-    date: folder,
-    naverDate: naver,
+    requestedDate: todayFormats(requestedDate).folder,
+    date: collected.formats.folder,
+    naverDate: collected.formats.naver,
     baseDir,
-    dayDir: path.join(baseDir, folder),
+    dayDir: path.join(baseDir, collected.formats.folder),
     industryCount: reports.filter((report) => report.type === "industry").length,
     companyCount: reports.filter((report) => report.type === "company").length,
     downloadedCount: reports.filter((report) => report.downloaded).length,

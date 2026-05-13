@@ -15,6 +15,16 @@ function kstDateValue(date = new Date()) {
   return `${get("year")}${get("month")}${get("day")}`;
 }
 
+function dateFromValue(value) {
+  return new Date(`${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}T00:00:00+09:00`);
+}
+
+function addDaysValue(value, days) {
+  const date = dateFromValue(value);
+  date.setUTCDate(date.getUTCDate() + days);
+  return kstDateValue(date);
+}
+
 function decodeHtml(value) {
   return String(value || "")
     .replace(/&amp;/g, "&")
@@ -106,19 +116,31 @@ function isBuyOpinion(opinion) {
 
 async function fetchBuyRecommendations(params = new URLSearchParams()) {
   const requestedDate = params.get("date") || kstDateValue();
-  const html = await fetchWiseReportHtml(requestedDate);
-  const reportDate = selectedDateFromHtml(html, requestedDate);
-  const allReports = parseReportRows(html);
-  const results = allReports
-    .filter(
-      (row) =>
-        isBuyOpinion(row.opinion) &&
-        row.targetPriceRaised &&
-        row.targetPrice > row.currentClose
-    )
-    .sort((a, b) => b.upsidePct - a.upsidePct);
+  const fallbackDays = Number(params.get("fallbackDays") || 0);
+  let html = "";
+  let reportDate = requestedDate;
+  let allReports = [];
+  let results = [];
+
+  for (let offset = 0; offset <= fallbackDays; offset += 1) {
+    const dateValue = addDaysValue(requestedDate, -offset);
+    html = await fetchWiseReportHtml(dateValue);
+    reportDate = selectedDateFromHtml(html, dateValue);
+    allReports = parseReportRows(html);
+    results = allReports
+      .filter(
+        (row) =>
+          isBuyOpinion(row.opinion) &&
+          row.targetPriceRaised &&
+          row.targetPrice > row.currentClose
+      )
+      .sort((a, b) => b.upsidePct - a.upsidePct);
+
+    if (results.length || fallbackDays === 0) break;
+  }
 
   return {
+    requestedDate,
     reportDate,
     sourceUrl: `${WISE_REPORT_URL}?fmt=1&ee=${reportDate}`,
     updatedAt: new Date().toISOString(),

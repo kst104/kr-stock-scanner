@@ -247,7 +247,7 @@ function renderDashboard() {
         <h2>증권리포트</h2>
         <div class="sub">네이버 증권 산업리포트/기업리포트를 오늘 날짜 기준으로 수집해 C:\\증권리포트분석에 저장합니다.</div>
       </div>
-      <button id="reportRun" type="button" class="secondary">오늘 리포트 수집</button>
+      <button id="reportRun" type="button" class="secondary">리포트 수집</button>
     </section>
     <div class="status" id="reportStatus">매일 오전 10시에 자동 수집되도록 설정됩니다.</div>
     <div class="reportGrid">
@@ -308,7 +308,7 @@ function renderDashboard() {
     }
 
     function syncBuyDownload() {
-      buyDownload.href = "/api/buy-recommendations.csv?date=" + encodeURIComponent(buyDateValue());
+      buyDownload.href = "/api/buy-recommendations.csv?date=" + encodeURIComponent(buyDateValue()) + "&fallbackDays=7";
     }
 
     function rowHtml(row) {
@@ -393,7 +393,7 @@ function renderDashboard() {
       buyRecommendations.innerHTML = "<tr><td colspan='10' class='muted'>로딩 중</td></tr>";
       try {
         const started = performance.now();
-        const res = await fetch("/api/buy-recommendations?date=" + encodeURIComponent(buyDateValue()));
+        const res = await fetch("/api/buy-recommendations?date=" + encodeURIComponent(buyDateValue()) + "&fallbackDays=7");
         if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
         const seconds = ((performance.now() - started) / 1000).toFixed(1);
@@ -413,7 +413,7 @@ function renderDashboard() {
       reportRun.disabled = true;
       reportStatus.textContent = "오늘 리포트를 수집하고 PDF를 다운로드하는 중입니다...";
       try {
-        const res = await fetch("/api/reports/run", { method: "POST" });
+        const res = await fetch("/api/reports/run?fallbackDays=7", { method: "POST" });
         if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
         renderReports(data.reports);
