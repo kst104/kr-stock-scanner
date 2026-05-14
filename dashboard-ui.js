@@ -160,13 +160,30 @@ function renderDashboard() {
     .reportGrid.resizing .reportResizer {
       background: linear-gradient(90deg, transparent 0 2px, var(--accent) 2px 8px, transparent 8px 10px);
     }
-    .reportGrid table { min-width: 620px; }
+    .reportGrid table { min-width: 720px; }
     .reportGrid h3 {
       margin: 0;
       padding: 10px 12px;
       font-size: 14px;
       background: #f9fafb;
       border-bottom: 1px solid var(--line);
+    }
+    .reportGrid th:first-child,
+    .reportGrid td:first-child {
+      position: sticky;
+      left: 0;
+      min-width: 150px;
+      max-width: 220px;
+      background: #fff;
+      box-shadow: 1px 0 0 var(--line);
+      z-index: 2;
+      white-space: normal;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+    }
+    .reportGrid th:first-child {
+      background: #f9fafb;
+      z-index: 3;
     }
     table {
       width: 100%;
