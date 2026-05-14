@@ -133,6 +133,32 @@ function renderDashboard() {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 14px;
+      align-items: stretch;
+    }
+    .reportGrid.resizable {
+      grid-template-columns: minmax(320px, var(--report-left, 50%)) 10px minmax(320px, 1fr);
+      gap: 0;
+    }
+    .reportGrid .tableWrap {
+      min-width: 0;
+    }
+    .reportGrid.resizable .tableWrap {
+      border-radius: 0;
+    }
+    .reportGrid.resizable .tableWrap:first-child {
+      border-radius: 8px 0 0 8px;
+    }
+    .reportGrid.resizable .tableWrap:last-child {
+      border-radius: 0 8px 8px 0;
+    }
+    .reportResizer {
+      cursor: col-resize;
+      background: linear-gradient(90deg, transparent 0 3px, var(--line) 3px 7px, transparent 7px 10px);
+      touch-action: none;
+    }
+    .reportResizer:hover,
+    .reportGrid.resizing .reportResizer {
+      background: linear-gradient(90deg, transparent 0 2px, var(--accent) 2px 8px, transparent 8px 10px);
     }
     .reportGrid table { min-width: 620px; }
     .reportGrid h3 {
@@ -176,7 +202,9 @@ function renderDashboard() {
       .reportbar { grid-template-columns: 1fr; }
       .reportActions { justify-content: stretch; }
       .reportActions label { min-width: 0; }
-      .reportGrid { grid-template-columns: 1fr; }
+      .reportGrid, .reportGrid.resizable { grid-template-columns: 1fr; gap: 14px; }
+      .reportGrid .tableWrap { border-radius: 8px; }
+      .reportResizer { display: none; }
       button, .download { width: 100%; }
     }
   </style>
@@ -278,6 +306,7 @@ function renderDashboard() {
     const recipientsEl = document.querySelector("#recipients");
     const reportRun = document.querySelector("#reportRun");
     const reportStatus = document.querySelector("#reportStatus");
+    const reportGrid = document.querySelector(".reportGrid");
     const industryReports = document.querySelector("#industryReports");
     const companyReports = document.querySelector("#companyReports");
     const buyDate = document.querySelector("#buyDate");
@@ -292,6 +321,55 @@ function renderDashboard() {
     const pct = (n) => Number.isFinite(n) ? n.toFixed(2) + "%" : "";
     const price = (n) => Number.isFinite(n) ? fmt.format(Math.round(n)) : "";
     const params = () => new URLSearchParams(new FormData(form));
+
+    function setupReportResizer() {
+      if (!reportGrid || reportGrid.dataset.resizerReady === "1") return;
+      const resizer = document.createElement("div");
+      resizer.className = "reportResizer";
+      resizer.id = "reportResizer";
+      resizer.setAttribute("role", "separator");
+      resizer.setAttribute("aria-label", "리포트 표 너비 조절");
+      resizer.setAttribute("aria-orientation", "vertical");
+      resizer.tabIndex = 0;
+      reportGrid.insertBefore(resizer, reportGrid.children[1]);
+      reportGrid.classList.add("resizable");
+      reportGrid.dataset.resizerReady = "1";
+
+      const saved = localStorage.getItem("reportGridLeft");
+      if (saved) reportGrid.style.setProperty("--report-left", saved);
+
+      function setLeftFromClientX(clientX) {
+        const rect = reportGrid.getBoundingClientRect();
+        const pctValue = Math.min(75, Math.max(25, ((clientX - rect.left) / rect.width) * 100));
+        const value = pctValue.toFixed(1) + "%";
+        reportGrid.style.setProperty("--report-left", value);
+        localStorage.setItem("reportGridLeft", value);
+      }
+
+      resizer.addEventListener("pointerdown", (event) => {
+        if (window.matchMedia("(max-width: 980px)").matches) return;
+        event.preventDefault();
+        resizer.setPointerCapture(event.pointerId);
+        reportGrid.classList.add("resizing");
+      });
+      resizer.addEventListener("pointermove", (event) => {
+        if (!reportGrid.classList.contains("resizing")) return;
+        setLeftFromClientX(event.clientX);
+      });
+      resizer.addEventListener("pointerup", (event) => {
+        reportGrid.classList.remove("resizing");
+        if (resizer.hasPointerCapture(event.pointerId)) resizer.releasePointerCapture(event.pointerId);
+      });
+      resizer.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+        event.preventDefault();
+        const current = parseFloat(getComputedStyle(reportGrid).getPropertyValue("--report-left")) || 50;
+        const next = current + (event.key === "ArrowRight" ? 2 : -2);
+        const value = Math.min(75, Math.max(25, next)).toFixed(1) + "%";
+        reportGrid.style.setProperty("--report-left", value);
+        localStorage.setItem("reportGridLeft", value);
+      });
+    }
 
     function syncDownload() {
       download.href = "/api/scan.csv?" + params().toString();
@@ -499,6 +577,7 @@ function renderDashboard() {
     });
 
     syncDownload();
+    setupReportResizer();
     buyDate.value = todayInputValue();
     syncBuyDownload();
     loadRecipients().catch(() => {
