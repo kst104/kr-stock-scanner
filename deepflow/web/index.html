@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>deepflow — KR 오더플로우 뷰어</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">deep<span>flow</span></div>
+    <select id="symbolSelect" class="symbol-select" title="종목 선택"></select>
+    <div class="spacer"></div>
+    <div id="statusBadge" class="badge">연결 중…</div>
+    <button id="gearBtn" class="icon-btn" title="종목 관리">⚙</button>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-tab="bubbles">Bubbles</button>
+    <button class="tab" data-tab="deep">Deep Trades</button>
+    <button class="tab" data-tab="dom">DOM</button>
+    <button class="tab" data-tab="themes">테마 종합</button>
+    <button class="tab" data-tab="events">이벤트</button>
+  </nav>
+
+  <main class="stage">
+    <!-- Bubbles -->
+    <section class="view active" id="view-bubbles">
+      <div class="canvas-wrap">
+        <canvas id="bubbleCanvas"></canvas>
+        <div class="legend">
+          <span class="dot buy"></span>매수 체결
+          <span class="dot sell"></span>매도 체결
+          <span class="muted">· 버블 크기 = 거래대금 · 마커: ▲흡수 ◆스탑런 ●급증</span>
+        </div>
+      </div>
+      <aside class="side">
+        <h3>거래대금 프로파일</h3>
+        <canvas id="profileCanvas"></canvas>
+        <div class="kv"><span>CVD</span><b id="cvdVal">–</b></div>
+        <div class="kv"><span>POC</span><b id="pocVal">–</b></div>
+      </aside>
+    </section>
+
+    <!-- Deep Trades -->
+    <section class="view" id="view-deep">
+      <div class="table-tools">
+        <label>최소 거래대금
+          <select id="minAmount">
+            <option value="10000000">1천만</option>
+            <option value="30000000" selected>3천만</option>
+            <option value="100000000">1억</option>
+            <option value="500000000">5억</option>
+          </select>
+        </label>
+        <span class="muted">| 전 종목 대형 체결 (해당 날짜)</span>
+      </div>
+      <div class="table-scroll">
+        <table id="deepTable">
+          <thead><tr>
+            <th>시간</th><th>종목</th><th>구분</th><th class="num">가격</th>
+            <th class="num">수량</th><th class="num">거래대금</th><th class="num">체결강도</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- DOM -->
+    <section class="view" id="view-dom">
+      <div class="dom-wrap">
+        <canvas id="domCanvas"></canvas>
+        <div class="dom-meta">
+          <div class="kv"><span>총 매도잔량</span><b id="totAsk">–</b></div>
+          <div class="kv"><span>총 매수잔량</span><b id="totBid">–</b></div>
+          <div class="kv"><span>불균형</span><b id="imbal">–</b></div>
+          <p class="muted small">DOM 히트맵 — 셀 밝기 = 호가 잔량. 상단 매도(빨강)/하단 매수(초록).
+            호가는 ⚙에서 <b>호가 ON</b> 종목만 수집됩니다.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Themes -->
+    <section class="view" id="view-themes">
+      <div class="table-scroll">
+        <table id="themeTable">
+          <thead><tr>
+            <th>테마</th><th class="num">종목수</th><th class="num">매수대금</th>
+            <th class="num">매도대금</th><th class="num">순자금</th><th>흐름</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Events -->
+    <section class="view" id="view-events">
+      <ul class="timeline" id="eventList"></ul>
+    </section>
+  </main>
+
+  <footer class="playbar">
+    <button id="liveBtn" class="live on" title="실시간 보기">▶ 실시간</button>
+    <select id="dateSelect" class="date-select" title="세션 날짜"></select>
+    <input id="timeSlider" type="range" min="0" max="1000" value="1000" class="slider" />
+    <span id="timeLabel" class="time-label">--:--:--</span>
+  </footer>
+
+  <!-- 종목 관리 모달 -->
+  <div id="gearModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>종목 관리</h2>
+        <button id="closeGear" class="icon-btn">✕</button>
+      </div>
+      <p class="muted small" id="slotInfo"></p>
+      <div class="add-row">
+        <input id="newCode" placeholder="종목코드 (예:005930)" maxlength="6" />
+        <input id="newName" placeholder="이름(선택)" />
+        <label class="chk"><input type="checkbox" id="newQuotes" /> 호가</label>
+        <button id="addSym" class="btn">추가</button>
+      </div>
+      <div class="table-scroll short">
+        <table id="symTable">
+          <thead><tr><th>코드</th><th>이름</th><th>호가</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="modal-foot">
+        <button id="applyCapture" class="btn primary">캡처 재시작(적용)</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
