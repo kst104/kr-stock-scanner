@@ -72,7 +72,7 @@ tbody tr:hover{background:var(--panel2)}
 .bar > i{display:block; height:100%}
 
 .dom-wrap{flex:1; display:flex; gap:12px}
-#domCanvas{flex:1; border:1px solid var(--line); border-radius:8px; background:var(--panel2)}
+#domCanvas{flex:1; min-width:0; border:1px solid var(--line); border-radius:8px; background:var(--panel2)}
 .dom-meta{width:240px; display:flex; flex-direction:column; gap:6px}
 
 .timeline{list-style:none; margin:0; padding:0; overflow:auto; width:100%}
