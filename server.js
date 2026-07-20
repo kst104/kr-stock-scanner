@@ -7,6 +7,7 @@ const { runReportCollection } = require("./report-scraper");
 const { fetchBuyRecommendations } = require("./wise-report");
 
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || "127.0.0.1";
 const RECIPIENTS_FILE = path.join(__dirname, "recipients.json");
 const DEFAULT_RECIPIENTS = ["promokorea@gmail.com"];
 const USER_AGENT =
@@ -619,8 +620,8 @@ function startServer() {
     }
   });
 
-  server.listen(PORT, () => {
-    console.log(`KR stock scanner running at http://localhost:${PORT}`);
+  server.listen(PORT, HOST, () => {
+    console.log(`KR stock scanner running at http://${HOST}:${PORT}`);
   });
 }
 

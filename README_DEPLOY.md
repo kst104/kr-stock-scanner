@@ -35,6 +35,7 @@ This repository includes `render.yaml`, so Render can deploy it as a Blueprint:
 
 ## Notes
 
+- The server binds to `127.0.0.1` (localhost) by default, so it is only reachable from the local machine. To expose it on a network or deploy to a host like Render, set `HOST=0.0.0.0`.
 - The dashboard scans Naver Finance from the server at request time.
 - CSV download is available at `/api/scan.csv`.
 - Naver research report collection is available at `/api/reports/run` and through `report-scraper.js`.
