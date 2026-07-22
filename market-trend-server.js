@@ -58,6 +58,7 @@ function renderPage() {
       border-radius: 8px;
       padding: 14px;
     }
+    .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     button {
       height: 38px;
       border: 0;
@@ -67,6 +68,11 @@ function renderPage() {
       color: #fff;
       font-weight: 700;
       cursor: pointer;
+    }
+    button.ghost {
+      background: #fff;
+      color: var(--accent);
+      border: 1px solid var(--line);
     }
     button:disabled { opacity: .55; cursor: wait; }
     .summary { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -149,7 +155,10 @@ function renderPage() {
   <main>
     <section class="bar">
       <div class="sub">매일 오전 8시 30분(Asia/Seoul)에 자동 갱신 · 페이지 로드시 즉시 계산</div>
-      <button id="run" type="button">장세 새로고침</button>
+      <div class="actions">
+        <button id="fetch" type="button">데이터 받아오기</button>
+        <button id="run" type="button" class="ghost">장세 새로고침</button>
+      </div>
     </section>
     <div class="summary">
       <div class="card bull"><span class="muted">상승장</span><span class="n" id="cntBull">-</span></div>
@@ -174,6 +183,7 @@ function renderPage() {
   </main>
   <script>
     const runBtn = document.querySelector("#run");
+    const fetchBtn = document.querySelector("#fetch");
     const statusEl = document.querySelector("#status");
     const tbody = document.querySelector("#tbody");
     const cntBull = document.querySelector("#cntBull");
@@ -225,26 +235,34 @@ function renderPage() {
       "</tr>";
     }
 
-    async function run() {
+    async function run(force = false) {
       runBtn.disabled = true;
-      statusEl.textContent = "8종목 장세를 계산하는 중입니다...";
+      fetchBtn.disabled = true;
+      statusEl.textContent = force
+        ? "네이버/KIS에서 데이터를 새로 받아오는 중입니다..."
+        : "8종목 장세를 계산하는 중입니다...";
       tbody.innerHTML = "<tr><td colspan='15' class='muted'>로딩 중</td></tr>";
       try {
-        const res = await fetch("/api/market-trend");
+        const started = performance.now();
+        const res = await fetch("/api/market-trend" + (force ? "?force=1" : ""));
         if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
+        const seconds = ((performance.now() - started) / 1000).toFixed(1);
         tbody.innerHTML = data.results.map(rowHtml).join("");
         cntBull.textContent = data.summary.bull;
         cntBear.textContent = data.summary.bear;
         cntSide.textContent = data.summary.sideways;
         statusEl.textContent =
+          (force ? "새로 받아옴 · " : "") +
           "기준일 " + (data.asOfDate || "-") + " (전일까지) / 계산시각 " +
-          new Date(data.updatedAt).toLocaleString("ko-KR") + " / 매일 08:30 자동 갱신";
+          new Date(data.updatedAt).toLocaleString("ko-KR") +
+          " / " + seconds + "초 / 매일 08:30 자동 갱신";
       } catch (error) {
         statusEl.textContent = "장세 계산 오류: " + error.message;
         tbody.innerHTML = "<tr><td colspan='15' class='muted'>계산 실패</td></tr>";
       } finally {
         runBtn.disabled = false;
+        fetchBtn.disabled = false;
       }
     }
 
@@ -266,12 +284,13 @@ function renderPage() {
     function scheduleDaily() {
       if (dailyTimer) clearTimeout(dailyTimer);
       dailyTimer = setTimeout(() => {
-        run();
+        run(true);
         scheduleDaily();
       }, msUntilNextSeoul(8, 30));
     }
 
-    runBtn.addEventListener("click", run);
+    fetchBtn.addEventListener("click", () => run(true));
+    runBtn.addEventListener("click", () => run(false));
     run();
     scheduleDaily();
   </script>
@@ -284,7 +303,10 @@ function startServer() {
     const url = new URL(req.url, `http://${req.headers.host}`);
     try {
       if (url.pathname === "/api/market-trend") {
-        const data = await computeMarketTrend();
+        const force =
+          url.searchParams.get("force") === "1" ||
+          url.searchParams.get("refresh") === "1";
+        const data = await computeMarketTrend({ force });
         res.writeHead(200, noStoreHeaders({ "Content-Type": "application/json; charset=utf-8" }));
         res.end(JSON.stringify(data));
         return;

@@ -67,10 +67,11 @@ function countCompleted(rows) {
 }
 
 // 네이버금융을 우선 사용하고, 데이터가 부족하거나 실패하면 KIS API로 폴백한다.
-async function fetchDailyChart(code, count) {
+// force=true 이면 30분 캐시를 무시하고 항상 새로 받아온다.
+async function fetchDailyChart(code, count, force = false) {
   const key = `chart:${code}:${count}`;
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.time < CACHE_MS) return hit.value;
+  if (!force && hit && Date.now() - hit.time < CACHE_MS) return hit.value;
 
   let rows = [];
   let source = "naver";
@@ -291,11 +292,12 @@ function evaluateStock(stock, rows, source) {
   };
 }
 
-async function computeMarketTrend() {
+async function computeMarketTrend(options = {}) {
+  const force = Boolean(options.force);
   const results = [];
   for (const stock of TREND_STOCKS) {
     try {
-      const { rows, source } = await fetchDailyChart(stock.code, CHART_COUNT);
+      const { rows, source } = await fetchDailyChart(stock.code, CHART_COUNT, force);
       results.push(evaluateStock(stock, rows, source));
     } catch (error) {
       results.push({ ...stock, error: error.message });
