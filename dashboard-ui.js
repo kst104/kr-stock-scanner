@@ -212,61 +212,6 @@ function renderDashboard() {
     .muted { color: var(--muted); }
     a { color: inherit; text-decoration: none; }
     a:hover { text-decoration: underline; }
-    .trendbar {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 10px;
-      align-items: center;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 14px;
-    }
-    .trendbar h2 { margin: 0 0 4px; font-size: 18px; }
-    .trendActions { display: flex; gap: 8px; align-items: center; }
-    .summary {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-    .summary .card {
-      flex: 1 1 120px;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 12px 14px;
-      display: grid;
-      gap: 4px;
-    }
-    .summary .card .n { font-size: 24px; font-weight: 800; }
-    .summary .card.bull { border-left: 4px solid #d92626; }
-    .summary .card.bear { border-left: 4px solid #1d4ed8; }
-    .summary .card.side { border-left: 4px solid #687583; }
-    .badge {
-      display: inline-block;
-      padding: 3px 10px;
-      border-radius: 999px;
-      font-weight: 800;
-      font-size: 13px;
-      color: #fff;
-    }
-    .badge.bull { background: #d92626; }
-    .badge.bear { background: #1d4ed8; }
-    .badge.side { background: #687583; }
-    .chk { font-weight: 700; }
-    .chk.ok { color: #16a34a; }
-    .chk.no { color: #b91c1c; }
-    .src {
-      display: inline-block;
-      padding: 1px 6px;
-      border-radius: 4px;
-      background: #eef2ff;
-      color: #4338ca;
-      font-size: 11px;
-      font-weight: 700;
-    }
-    #trendTable { min-width: 1080px; }
-    #trendTable td:nth-child(2), #trendTable th:nth-child(2) { text-align: left; }
     @media (max-width: 980px) {
       header, main { padding-left: 14px; padding-right: 14px; }
       .toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -287,35 +232,6 @@ function renderDashboard() {
     <div class="sub">오늘 제외 최근 20거래일에서 처음 발생한 10% 이상 양봉만 기준봉으로 인정하고, 이후 5일선 이탈 없이 금일 저가가 3/5일선 근처인 종목을 검색합니다.</div>
   </header>
   <main>
-    <section class="trendbar">
-      <div>
-        <h2>장세파악 (8종목)</h2>
-        <div class="sub">KODEX200 · 삼성전자 · 삼성전기 · SK하이닉스 · 삼성물산 · SK스퀘어 · SK텔레콤 · 삼성생명 — 전일까지의 일봉으로 60/20일 이평, ADX(14)·DI, RSI(14)를 계산해 상승/하락/횡보장을 판정합니다. 네이버금융 데이터가 부족하면 한국투자증권 KIS API로 자동 보완합니다.</div>
-      </div>
-      <div class="trendActions">
-        <button id="trendRun" type="button">장세 새로고침</button>
-      </div>
-    </section>
-    <div class="summary" id="trendSummary">
-      <div class="card bull"><span class="muted">상승장</span><span class="n" id="cntBull">-</span></div>
-      <div class="card bear"><span class="muted">하락장</span><span class="n" id="cntBear">-</span></div>
-      <div class="card side"><span class="muted">횡보장</span><span class="n" id="cntSide">-</span></div>
-    </div>
-    <div class="status" id="trendStatus">매일 오전 8시 30분에 자동으로 갱신됩니다. (페이지 로드시 즉시 계산)</div>
-    <div class="tableWrap">
-      <table id="trendTable">
-        <thead>
-          <tr>
-            <th>장세</th><th>종목</th><th>기준일</th><th>종가</th><th>MA20</th><th>MA60</th>
-            <th>종가-MA60</th><th>MA20 기울기</th><th>ADX(14)</th><th>+DI</th><th>-DI</th><th>RSI(14)</th>
-            <th>추세</th><th>ADX/DI</th><th>RSI판정</th>
-          </tr>
-        </thead>
-        <tbody id="trendBody">
-          <tr><td colspan="15" class="muted">장세 계산 중...</td></tr>
-        </tbody>
-      </table>
-    </div>
     <form class="toolbar" id="form">
       <label>시총 최소(억원)<input name="minMarketCapEok" type="number" min="0" value="3000"></label>
       <label>기준봉 기간(거래일)<input name="windowDays" type="number" min="2" max="20" value="5"></label>
@@ -415,16 +331,9 @@ function renderDashboard() {
     const buyDownload = document.querySelector("#buyDownload");
     const buyStatus = document.querySelector("#buyStatus");
     const buyRecommendations = document.querySelector("#buyRecommendations");
-    const trendRun = document.querySelector("#trendRun");
-    const trendStatus = document.querySelector("#trendStatus");
-    const trendBody = document.querySelector("#trendBody");
-    const cntBull = document.querySelector("#cntBull");
-    const cntBear = document.querySelector("#cntBear");
-    const cntSide = document.querySelector("#cntSide");
     const fmt = new Intl.NumberFormat("ko-KR");
     let realtimeTimer = null;
     let realtimeOn = false;
-    let trendDailyTimer = null;
 
     const pct = (n) => Number.isFinite(n) ? n.toFixed(2) + "%" : "";
     const price = (n) => Number.isFinite(n) ? fmt.format(Math.round(n)) : "";
@@ -660,101 +569,6 @@ function renderDashboard() {
       }
     }
 
-    const phaseClass = { bull: "bull", bear: "bear", sideways: "side" };
-    const num1 = (n) => Number.isFinite(n) ? n.toFixed(1) : "-";
-    const num2 = (n) => Number.isFinite(n) ? n.toFixed(2) : "-";
-    const chk = (ok) => ok
-      ? "<span class='chk ok'>충족</span>"
-      : "<span class='chk no'>미충족</span>";
-
-    function trendRowHtml(row) {
-      if (row.error) {
-        return "<tr><td class='muted'>-</td><td>" + row.name + "</td>" +
-          "<td colspan='13' class='muted'>" + row.error + "</td></tr>";
-      }
-      const cls = phaseClass[row.phase] || "side";
-      const srcTag = row.source === "kis" ? " <span class='src'>KIS</span>" : "";
-      const url = "https://finance.naver.com/item/main.naver?code=" + row.code;
-      const slopeArrow = row.slope20 > 0 ? "▲" : (row.slope20 < 0 ? "▼" : "—");
-      const slopeCls = row.slope20 > 0 ? "up" : "muted";
-      const b = row.checks.bull;
-      const be = row.checks.bear;
-      // 판정에 실제로 쓰인 방향의 충족 여부를 표시
-      const trendOk = row.phase === "bear" ? be.trend : b.trend;
-      const adxOk = row.phase === "bear" ? be.adx : b.adx;
-      const rsiOk = row.phase === "bear" ? be.rsi : b.rsi;
-      return "<tr>" +
-        "<td><span class='badge " + cls + "'>" + row.phaseLabel + "</span></td>" +
-        "<td><a href='" + url + "' target='_blank' rel='noreferrer'>" + row.name + "</a></td>" +
-        "<td>" + (row.date || "-") + srcTag + "</td>" +
-        "<td>" + price(row.close) + "</td>" +
-        "<td>" + price(row.ma20) + "</td>" +
-        "<td>" + price(row.ma60) + "</td>" +
-        "<td class='" + (row.closeVsMa60Pct >= 0 ? "up" : "muted") + "'>" + pct(row.closeVsMa60Pct) + "</td>" +
-        "<td class='" + slopeCls + "'>" + slopeArrow + " " + num2(row.slope20PctPerDay) + "%</td>" +
-        "<td>" + num1(row.adx) + "</td>" +
-        "<td>" + num1(row.plusDI) + "</td>" +
-        "<td>" + num1(row.minusDI) + "</td>" +
-        "<td>" + num1(row.rsi) + "</td>" +
-        "<td>" + chk(trendOk) + "</td>" +
-        "<td>" + chk(adxOk) + "</td>" +
-        "<td>" + chk(rsiOk) + "</td>" +
-      "</tr>";
-    }
-
-    async function runTrend() {
-      trendRun.disabled = true;
-      trendStatus.textContent = "8종목 장세를 계산하는 중입니다...";
-      trendBody.innerHTML = "<tr><td colspan='15' class='muted'>로딩 중</td></tr>";
-      try {
-        const res = await fetch("/api/market-trend");
-        if (!res.ok) throw new Error(await res.text());
-        const data = await res.json();
-        trendBody.innerHTML = data.results.map(trendRowHtml).join("");
-        cntBull.textContent = data.summary.bull;
-        cntBear.textContent = data.summary.bear;
-        cntSide.textContent = data.summary.sideways;
-        trendStatus.textContent =
-          "기준일 " + (data.asOfDate || "-") + " (전일까지) / 계산시각 " +
-          new Date(data.updatedAt).toLocaleString("ko-KR") +
-          " / 매일 08:30 자동 갱신";
-      } catch (error) {
-        trendStatus.textContent = "장세 계산 오류: " + error.message;
-        trendBody.innerHTML = "<tr><td colspan='15' class='muted'>계산 실패</td></tr>";
-      } finally {
-        trendRun.disabled = false;
-      }
-    }
-
-    // 매일 오전 8시 30분(Asia/Seoul)에 자동 갱신되도록 예약
-    function msUntilNextSeoul(hour, minute) {
-      const now = new Date();
-      const fmtParts = new Intl.DateTimeFormat("en-US", {
-        timeZone: "Asia/Seoul",
-        hour12: false,
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      }).formatToParts(now);
-      const get = (t) => Number(fmtParts.find((p) => p.type === t).value);
-      const nowSec = ((get("hour") % 24) * 3600) + (get("minute") * 60) + get("second");
-      const targetSec = (hour * 3600) + (minute * 60);
-      let delta = targetSec - nowSec;
-      if (delta <= 0) delta += 24 * 3600;
-      return delta * 1000;
-    }
-
-    function scheduleDailyTrend() {
-      if (trendDailyTimer) clearTimeout(trendDailyTimer);
-      const wait = msUntilNextSeoul(8, 30);
-      trendDailyTimer = setTimeout(() => {
-        runTrend();
-        scheduleDailyTrend();
-      }, wait);
-    }
-
-    trendRun.addEventListener("click", runTrend);
-
     form.addEventListener("submit", runScan);
     form.addEventListener("input", syncDownload);
     realtime.addEventListener("click", toggleRealtime);
@@ -781,8 +595,6 @@ function renderDashboard() {
 
     syncDownload();
     setupReportResizer();
-    runTrend();
-    scheduleDailyTrend();
     buyDate.value = todayInputValue();
     syncBuyDownload();
     loadRecipients().catch(() => {

@@ -33,10 +33,25 @@ This repository includes `render.yaml`, so Render can deploy it as a Blueprint:
 3. Connect `kst104/kr-stock-scanner`.
 4. Apply the generated service.
 
-## Notes
+## 장세파악 (별도 서버 · 별도 포트)
+
+장세파악은 기존 스캐너(`server.js`, 3000번 포트)와 **분리된 독립 서버**입니다.
+
+```powershell
+npm run trend
+```
+
+기본 포트는 **3100**번입니다 (`http://localhost:3100`). 변경하려면 `TREND_PORT` 환경변수를 지정합니다.
+
+- 대상 8종목: KODEX200 · 삼성전자 · 삼성전기 · SK하이닉스 · 삼성물산 · SK스퀘어 · SK텔레콤 · 삼성생명
+- 전일까지의 일봉으로 60/20일 이평선, 20일 이평 기울기, ADX(14)·+DI/-DI, RSI(14)를 계산해 상승/하락/횡보장을 판정합니다.
+- 서버: `market-trend-server.js`, 계산 로직: `market-trend.js`, API: `/api/market-trend`.
+- 페이지 로드시 즉시 계산되고, 매일 오전 8시 30분(Asia/Seoul)에 자동 갱신됩니다.
+- 기존 스캐너와 장세파악을 동시에 쓰려면 두 서버를 각각 띄웁니다: `npm start` (3000) + `npm run trend` (3100).
+
+## Notes (스캐너)
 
 - The dashboard scans Naver Finance from the server at request time.
-- 장세파악: 대시보드 상단에서 KODEX200·삼성전자·삼성전기·SK하이닉스·삼성물산·SK스퀘어·SK텔레콤·삼성생명 8종목의 상승/하락/횡보장을 판정합니다. 전일까지의 일봉으로 60/20일 이평선, 20일 이평 기울기, ADX(14)·+DI/-DI, RSI(14)를 계산합니다. API는 `/api/market-trend`, 계산 로직은 `market-trend.js`에 있습니다. 페이지 로드시 즉시 계산되고, 매일 오전 8시 30분(Asia/Seoul)에 자동 갱신됩니다.
 
 ## KIS API 폴백 (한국투자증권)
 
