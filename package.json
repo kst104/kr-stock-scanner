@@ -6,7 +6,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check dashboard-ui.js && node --check monitor.js && node --check report-scraper.js && node --check wise-report.js"
+    "trend": "node market-trend-server.js",
+    "check": "node --check server.js && node --check dashboard-ui.js && node --check monitor.js && node --check report-scraper.js && node --check wise-report.js && node --check market-trend.js && node --check kis.js && node --check market-trend-server.js"
   },
   "engines": {
     "node": ">=20"

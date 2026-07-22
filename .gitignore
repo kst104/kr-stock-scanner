@@ -6,4 +6,6 @@ monitor-state.json
 gmail-monitor-state.json
 recipients.json
 .env
+kis-config.json
+.kis-token.json
 .DS_Store
