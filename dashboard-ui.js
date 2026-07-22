@@ -16,6 +16,7 @@ function renderDashboard() {
       --accent: #0f766e;
       --accent2: #334155;
       --up: #d92626;
+      --down: #1d4ed8;
     }
     * { box-sizing: border-box; }
     body {
@@ -209,6 +210,7 @@ function renderDashboard() {
     th:nth-child(2), td:nth-child(2),
     th:nth-child(3), td:nth-child(3) { text-align: left; }
     .up { color: var(--up); font-weight: 700; }
+    .dn { color: var(--down); font-weight: 700; }
     .muted { color: var(--muted); }
     a { color: inherit; text-decoration: none; }
     a:hover { text-decoration: underline; }
@@ -255,10 +257,11 @@ function renderDashboard() {
             <th>시가</th><th>저가</th><th>종가</th><th>기준봉일</th><th>기준봉 상승률</th>
             <th>기준봉 이후</th><th>전일대비</th><th>3MA</th><th>5MA</th>
             <th>저가-3MA</th><th>저가-5MA</th><th>터치</th><th>거래량</th>
+            <th>개인(억)</th><th>기관(억)</th><th>외인(억)</th>
           </tr>
         </thead>
         <tbody id="tbody">
-          <tr><td colspan="18" class="muted">아직 결과가 없습니다.</td></tr>
+          <tr><td colspan="21" class="muted">아직 결과가 없습니다.</td></tr>
         </tbody>
       </table>
     </div>
@@ -338,6 +341,13 @@ function renderDashboard() {
     const pct = (n) => Number.isFinite(n) ? n.toFixed(2) + "%" : "";
     const price = (n) => Number.isFinite(n) ? fmt.format(Math.round(n)) : "";
     const params = () => new URLSearchParams(new FormData(form));
+    const flowCell = (n) => {
+      if (!Number.isFinite(n)) return "<td class='muted'>-</td>";
+      const rounded = Math.round(n);
+      const cls = rounded > 0 ? "up" : rounded < 0 ? "dn" : "muted";
+      const sign = rounded > 0 ? "+" : "";
+      return "<td class='" + cls + "'>" + sign + fmt.format(rounded) + "</td>";
+    };
 
     function setupReportResizer() {
       if (!reportGrid || reportGrid.dataset.resizerReady === "1") return;
@@ -432,6 +442,9 @@ function renderDashboard() {
         "<td>" + pct(row.lowToMa5Pct) + "</td>" +
         "<td>" + row.hit + "</td>" +
         "<td>" + price(row.volume) + "</td>" +
+        flowCell(row.individualEok) +
+        flowCell(row.institutionEok) +
+        flowCell(row.foreignEok) +
       "</tr>";
     }
 
@@ -534,7 +547,7 @@ function renderDashboard() {
       statusEl.textContent = source === "realtime"
         ? "실시간 검색 중입니다..."
         : "검색 중입니다...";
-      tbody.innerHTML = "<tr><td colspan='18' class='muted'>로딩 중</td></tr>";
+      tbody.innerHTML = "<tr><td colspan='21' class='muted'>로딩 중</td></tr>";
 
       try {
         const started = performance.now();
@@ -549,10 +562,10 @@ function renderDashboard() {
           new Date(data.updatedAt).toLocaleString("ko-KR") + realtimeText;
         tbody.innerHTML = data.results.length
           ? data.results.map(rowHtml).join("")
-          : "<tr><td colspan='18' class='muted'>조건에 맞는 종목이 없습니다.</td></tr>";
+          : "<tr><td colspan='21' class='muted'>조건에 맞는 종목이 없습니다.</td></tr>";
       } catch (error) {
         statusEl.textContent = "오류: " + error.message;
-        tbody.innerHTML = "<tr><td colspan='18' class='muted'>검색 실패</td></tr>";
+        tbody.innerHTML = "<tr><td colspan='21' class='muted'>검색 실패</td></tr>";
       } finally {
         run.disabled = false;
       }

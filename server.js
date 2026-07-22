@@ -5,6 +5,7 @@ const { URL } = require("url");
 const { renderDashboard } = require("./dashboard-ui");
 const { runReportCollection } = require("./report-scraper");
 const { fetchBuyRecommendations } = require("./wise-report");
+const { fetchInvestorFlow } = require("./investor-flow");
 
 const PORT = process.env.PORT || 3000;
 const RECIPIENTS_FILE = path.join(__dirname, "recipients.json");
@@ -234,14 +235,24 @@ async function scan(params) {
     }
   });
 
+  const results = rows
+    .filter(Boolean)
+    .sort((a, b) => b.triggerRisePct - a.triggerRisePct)
+    .slice(0, 300);
+
+  // 표시 대상(필터 통과 종목)에 한해 개인/기관/외인 순매수(억원)를 KRX에서 붙인다.
+  // 실패해도 값만 비고 스캔은 계속되도록 fetchInvestorFlow 내부에서 방어한다.
+  await mapLimit(results, 8, async (row) => {
+    const flow = await fetchInvestorFlow(row.code);
+    Object.assign(row, flow);
+    return row;
+  });
+
   return {
     options,
     scanned: stocks.length,
     updatedAt: new Date().toISOString(),
-    results: rows
-      .filter(Boolean)
-      .sort((a, b) => b.triggerRisePct - a.triggerRisePct)
-      .slice(0, 300),
+    results,
   };
 }
 
@@ -290,10 +301,19 @@ function scanToCsv(data) {
     ["lowToMa5Pct", "저가-5MA"],
     ["hit", "터치"],
     ["volume", "거래량"],
+    ["individualEok", "개인순매수(억)"],
+    ["institutionEok", "기관순매수(억)"],
+    ["foreignEok", "외인순매수(억)"],
   ];
   const header = columns.map(([, label]) => csvValue(label)).join(",");
   const rows = data.results.map((row) =>
-    columns.map(([key]) => csvValue(row[key])).join(",")
+    columns.map(([key]) => {
+      const value = row[key];
+      if (typeof value === "number") {
+        return csvValue(Number.isFinite(value) ? Math.round(value) : "");
+      }
+      return csvValue(value);
+    }).join(",")
   );
   return `\uFEFF${[header, ...rows].join("\r\n")}\r\n`;
 }
