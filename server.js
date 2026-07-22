@@ -5,6 +5,7 @@ const { URL } = require("url");
 const { renderDashboard } = require("./dashboard-ui");
 const { runReportCollection } = require("./report-scraper");
 const { fetchBuyRecommendations } = require("./wise-report");
+const { computeMarketTrend } = require("./market-trend");
 
 const PORT = process.env.PORT || 3000;
 const RECIPIENTS_FILE = path.join(__dirname, "recipients.json");
@@ -572,6 +573,12 @@ function startServer() {
           "Content-Disposition": "attachment; filename=\"kr-stock-scanner.csv\"",
         }));
         res.end(scanToCsv(data));
+        return;
+      }
+      if (url.pathname === "/api/market-trend") {
+        const data = await computeMarketTrend();
+        res.writeHead(200, noStoreHeaders({ "Content-Type": "application/json; charset=utf-8" }));
+        res.end(JSON.stringify(data));
         return;
       }
       if (url.pathname === "/api/buy-recommendations") {
