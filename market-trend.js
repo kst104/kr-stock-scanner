@@ -1,4 +1,5 @@
 const kis = require("./kis");
+const scoring = require("./scoring");
 
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
@@ -294,14 +295,19 @@ function evaluateStock(stock, rows, source) {
 
 async function computeMarketTrend(options = {}) {
   const force = Boolean(options.force);
+  const scoringInput = scoring.readInput();
   const results = [];
   for (const stock of TREND_STOCKS) {
+    let evaluated;
     try {
       const { rows, source } = await fetchDailyChart(stock.code, CHART_COUNT, force);
-      results.push(evaluateStock(stock, rows, source));
+      evaluated = evaluateStock(stock, rows, source);
     } catch (error) {
-      results.push({ ...stock, error: error.message });
+      evaluated = { ...stock, error: error.message };
     }
+    // 상승가능성 점수 (컨센서스 + 수급 + 상승장). 오류행도 종목명 기준 점수는 계산.
+    evaluated.score = scoring.scoreFor(evaluated.name, evaluated.phase, scoringInput);
+    results.push(evaluated);
   }
 
   const asOfDate =
