@@ -4,7 +4,8 @@ const { computeMarketTrend } = require("./market-trend");
 const scoring = require("./scoring");
 
 // 장세파악 전용 독립 서버 (기존 KR Stock Scanner와 분리, 별도 포트)
-const PORT = process.env.TREND_PORT || 3100;
+// 호스팅 플랫폼(Render 등)은 PORT를 주입하므로 우선 사용, 로컬은 3100.
+const PORT = process.env.PORT || process.env.TREND_PORT || 3100;
 
 function noStoreHeaders(headers = {}) {
   return {
