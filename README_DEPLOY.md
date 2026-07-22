@@ -49,6 +49,26 @@ npm run trend
 - 페이지 로드시 즉시 계산되고, 매일 오전 8시 30분(Asia/Seoul)에 자동 갱신됩니다.
 - 기존 스캐너와 장세파악을 동시에 쓰려면 두 서버를 각각 띄웁니다: `npm start` (3000) + `npm run trend` (3100).
 
+### 데이터 갱신 방식
+
+- **페이지를 열 때마다** 네이버금융(부족하면 KIS)에서 전일까지 최신 일봉을 새로 받아 계산합니다. 아침에 브라우저만 열면 항상 최신입니다.
+- 브라우저 탭을 켜 둔 상태라면 매일 08:30(Asia/Seoul)에 페이지가 스스로 다시 계산합니다(탭이 닫히면 이 타이머는 동작하지 않음).
+- 서버는 종목별 일봉을 30분간 캐시합니다. 일봉은 하루 한 번만 바뀌므로 실사용에는 영향이 없습니다.
+- 별도의 DB나 스냅샷 저장은 없습니다. 매번 실시간 계산이라 "장세 현재값"만 보여 줍니다.
+
+### macOS 자동 실행 (launchd)
+
+`npm run trend` 터미널을 닫거나 PC를 재부팅하면 서버가 꺼집니다. 로그인 시 자동 실행 + 꺼지면 자동 재시작하려면 아래를 한 번 실행합니다.
+
+```
+zsh scripts/install-macos.sh
+```
+
+- 로그인할 때마다 서버가 자동으로 뜨고, 죽으면 launchd가 되살립니다. 이후에는 아침에 `http://localhost:3100`만 열면 됩니다.
+- 로그: `/tmp/krstock-trend.log`, 오류: `/tmp/krstock-trend.err`
+- 해제: `zsh scripts/uninstall-macos.sh`
+- 등록 이름(Label): `com.krstock.trend`
+
 ## Notes (스캐너)
 
 - The dashboard scans Naver Finance from the server at request time.
