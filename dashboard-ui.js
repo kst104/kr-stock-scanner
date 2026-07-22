@@ -256,6 +256,15 @@ function renderDashboard() {
     .chk { font-weight: 700; }
     .chk.ok { color: #16a34a; }
     .chk.no { color: #b91c1c; }
+    .src {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: #eef2ff;
+      color: #4338ca;
+      font-size: 11px;
+      font-weight: 700;
+    }
     #trendTable { min-width: 1080px; }
     #trendTable td:nth-child(2), #trendTable th:nth-child(2) { text-align: left; }
     @media (max-width: 980px) {
@@ -281,7 +290,7 @@ function renderDashboard() {
     <section class="trendbar">
       <div>
         <h2>장세파악 (8종목)</h2>
-        <div class="sub">KODEX200 · 삼성전자 · 삼성전기 · SK하이닉스 · 삼성물산 · SK스퀘어 · SK텔레콤 · 삼성생명 — 전일까지의 일봉으로 60/20일 이평, ADX(14)·DI, RSI(14)를 계산해 상승/하락/횡보장을 판정합니다.</div>
+        <div class="sub">KODEX200 · 삼성전자 · 삼성전기 · SK하이닉스 · 삼성물산 · SK스퀘어 · SK텔레콤 · 삼성생명 — 전일까지의 일봉으로 60/20일 이평, ADX(14)·DI, RSI(14)를 계산해 상승/하락/횡보장을 판정합니다. 네이버금융 데이터가 부족하면 한국투자증권 KIS API로 자동 보완합니다.</div>
       </div>
       <div class="trendActions">
         <button id="trendRun" type="button">장세 새로고침</button>
@@ -664,6 +673,7 @@ function renderDashboard() {
           "<td colspan='13' class='muted'>" + row.error + "</td></tr>";
       }
       const cls = phaseClass[row.phase] || "side";
+      const srcTag = row.source === "kis" ? " <span class='src'>KIS</span>" : "";
       const url = "https://finance.naver.com/item/main.naver?code=" + row.code;
       const slopeArrow = row.slope20 > 0 ? "▲" : (row.slope20 < 0 ? "▼" : "—");
       const slopeCls = row.slope20 > 0 ? "up" : "muted";
@@ -676,7 +686,7 @@ function renderDashboard() {
       return "<tr>" +
         "<td><span class='badge " + cls + "'>" + row.phaseLabel + "</span></td>" +
         "<td><a href='" + url + "' target='_blank' rel='noreferrer'>" + row.name + "</a></td>" +
-        "<td>" + (row.date || "-") + "</td>" +
+        "<td>" + (row.date || "-") + srcTag + "</td>" +
         "<td>" + price(row.close) + "</td>" +
         "<td>" + price(row.ma20) + "</td>" +
         "<td>" + price(row.ma60) + "</td>" +

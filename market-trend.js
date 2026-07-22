@@ -1,6 +1,11 @@
+const kis = require("./kis");
+
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
   "(KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+
+// 지표 계산에 필요한 최소 완료 거래일 수 (MA60 + 기울기 lookback)
+const MIN_COMPLETED = 61;
 
 // 장세파악 대상 8종목 (네이버금융 종목코드)
 const TREND_STOCKS = [
@@ -38,16 +43,12 @@ function seoulToday() {
   return `${get("year")}${get("month")}${get("day")}`;
 }
 
-async function fetchDailyChart(code, count) {
-  const key = `chart:${code}:${count}`;
-  const hit = cache.get(key);
-  if (hit && Date.now() - hit.time < CACHE_MS) return hit.value;
-
+async function fetchNaverDaily(code, count) {
   const url =
     `https://fchart.stock.naver.com/sise.nhn?symbol=${code}` +
     `&timeframe=day&count=${count}&requestType=0`;
   const xml = await fetchText(url, "euc-kr");
-  const rows = [...xml.matchAll(/<item data="([^"]+)"/g)].map((match) => {
+  return [...xml.matchAll(/<item data="([^"]+)"/g)].map((match) => {
     const [date, open, high, low, close, volume] = match[1].split("|");
     return {
       date,
@@ -58,8 +59,50 @@ async function fetchDailyChart(code, count) {
       volume: Number(volume),
     };
   });
-  cache.set(key, { time: Date.now(), value: rows });
-  return rows;
+}
+
+function countCompleted(rows) {
+  const today = seoulToday();
+  return rows.filter((row) => row.date < today).length;
+}
+
+// 네이버금융을 우선 사용하고, 데이터가 부족하거나 실패하면 KIS API로 폴백한다.
+async function fetchDailyChart(code, count) {
+  const key = `chart:${code}:${count}`;
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.time < CACHE_MS) return hit.value;
+
+  let rows = [];
+  let source = "naver";
+  let naverError = null;
+  try {
+    rows = await fetchNaverDaily(code, count);
+  } catch (error) {
+    naverError = error;
+    rows = [];
+  }
+
+  const insufficient = countCompleted(rows) < MIN_COMPLETED;
+  if (insufficient && kis.isConfigured()) {
+    try {
+      const kisRows = await kis.fetchDailyChart(code);
+      if (countCompleted(kisRows) > countCompleted(rows)) {
+        rows = kisRows;
+        source = "kis";
+      }
+    } catch (error) {
+      // KIS도 실패하면 네이버 결과(혹은 빈 배열)를 그대로 사용
+      if (naverError && !rows.length) {
+        throw new Error(`네이버 실패(${naverError.message}) / KIS 실패(${error.message})`);
+      }
+    }
+  }
+
+  if (!rows.length && naverError) throw naverError;
+
+  const value = { rows, source };
+  cache.set(key, { time: Date.now(), value });
+  return value;
 }
 
 function sma(values, length, endIndex) {
@@ -189,15 +232,16 @@ const PHASE_LABEL = {
   sideways: "횡보장",
 };
 
-function evaluateStock(stock, rows) {
+function evaluateStock(stock, rows, source) {
   const today = seoulToday();
   // "전일까지의 데이터" - 당일(미완성) 봉은 제외한다.
   const completed = rows.filter((row) => row.date < today);
   const chart = completed.length ? completed : rows;
   const n = chart.length;
-  if (n < 61) {
+  if (n < MIN_COMPLETED) {
     return {
       ...stock,
+      source,
       error: "데이터 부족",
     };
   }
@@ -226,6 +270,7 @@ function evaluateStock(stock, rows) {
 
   return {
     ...stock,
+    source,
     date: last.date,
     close,
     ma20,
@@ -250,8 +295,8 @@ async function computeMarketTrend() {
   const results = [];
   for (const stock of TREND_STOCKS) {
     try {
-      const rows = await fetchDailyChart(stock.code, CHART_COUNT);
-      results.push(evaluateStock(stock, rows));
+      const { rows, source } = await fetchDailyChart(stock.code, CHART_COUNT);
+      results.push(evaluateStock(stock, rows, source));
     } catch (error) {
       results.push({ ...stock, error: error.message });
     }
