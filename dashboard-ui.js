@@ -16,6 +16,7 @@ function renderDashboard() {
       --accent: #0f766e;
       --accent2: #334155;
       --up: #d92626;
+      --down: #1d4ed8;
     }
     * { box-sizing: border-box; }
     body {
@@ -29,6 +30,33 @@ function renderDashboard() {
       border-bottom: 1px solid var(--line);
       background: #fff;
     }
+    .headerTop {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .headerNav {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .navLink {
+      display: inline-grid;
+      place-items: center;
+      height: 34px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--accent2);
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .navLink:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
     h1 {
       margin: 0 0 4px;
       font-size: 22px;
@@ -209,6 +237,7 @@ function renderDashboard() {
     th:nth-child(2), td:nth-child(2),
     th:nth-child(3), td:nth-child(3) { text-align: left; }
     .up { color: var(--up); font-weight: 700; }
+    .dn { color: var(--down); font-weight: 700; }
     .muted { color: var(--muted); }
     a { color: inherit; text-decoration: none; }
     a:hover { text-decoration: underline; }
@@ -228,8 +257,15 @@ function renderDashboard() {
 </head>
 <body>
   <header>
-    <h1>KR Stock Scanner</h1>
-    <div class="sub">오늘 제외 최근 20거래일에서 처음 발생한 10% 이상 양봉만 기준봉으로 인정하고, 이후 5일선 이탈 없이 금일 저가가 3/5일선 근처인 종목을 검색합니다.</div>
+    <div class="headerTop">
+      <div>
+        <h1>KR Stock Scanner</h1>
+        <div class="sub">오늘 제외 최근 20거래일에서 처음 발생한 10% 이상 양봉만 기준봉으로 인정하고, 이후 5일선 이탈 없이 금일 저가가 3/5일선 근처인 종목을 검색합니다.</div>
+      </div>
+      <nav class="headerNav">
+        <a class="navLink" href="https://drks-choice-analytics.promokorea.workers.dev/" target="_blank" rel="noreferrer">DRKS Choice Analytics ↗</a>
+      </nav>
+    </div>
   </header>
   <main>
     <form class="toolbar" id="form">
@@ -255,10 +291,11 @@ function renderDashboard() {
             <th>시가</th><th>저가</th><th>종가</th><th>기준봉일</th><th>기준봉 상승률</th>
             <th>기준봉 이후</th><th>전일대비</th><th>3MA</th><th>5MA</th>
             <th>저가-3MA</th><th>저가-5MA</th><th>터치</th><th>거래량</th>
+            <th>개인(억)</th><th>기관(억)</th><th>외인(억)</th>
           </tr>
         </thead>
         <tbody id="tbody">
-          <tr><td colspan="18" class="muted">아직 결과가 없습니다.</td></tr>
+          <tr><td colspan="21" class="muted">아직 결과가 없습니다.</td></tr>
         </tbody>
       </table>
     </div>
@@ -284,6 +321,35 @@ function renderDashboard() {
         </thead>
         <tbody id="buyRecommendations">
           <tr><td colspan="10" class="muted">아직 검색 결과가 없습니다.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <section class="reportbar">
+      <div>
+        <h2>주봉 반등 후보</h2>
+        <div class="sub">주봉 기준으로 직전 3주가 모두 음봉이며 몸통이 매주 커지고(하락 가속), 직전 고점 대비 20% 이상 하락한 종목 중 금주에 처음으로 양봉이 나온 종목을 찾습니다.</div>
+      </div>
+      <div class="reportActions">
+        <label>시총 최소(억원)<input id="weeklyMinCap" type="number" min="0" value="3000"></label>
+        <label>연속 음봉(주)<input id="weeklyGrow" type="number" min="2" max="8" value="3"></label>
+        <label>고점대비 하락(%)<input id="weeklyDrop" type="number" step="1" value="20"></label>
+        <button id="weeklyRun" type="button" class="secondary">주봉 반등 검색</button>
+        <a id="weeklyDownload" class="download ghost" href="/api/weekly-reversal.csv">CSV 다운로드</a>
+      </div>
+    </section>
+    <div class="status" id="weeklyStatus">검색 버튼을 누르면 최신 주봉 데이터를 읽습니다.</div>
+    <div class="tableWrap">
+      <table>
+        <thead>
+          <tr>
+            <th>종목</th><th>코드</th><th>시장</th><th>시총(억원)</th>
+            <th>금주</th><th>금주시가</th><th>금주종가</th><th>금주상승률</th>
+            <th>3주전몸통</th><th>2주전몸통</th><th>1주전몸통</th>
+            <th>직전고점</th><th>하락저점</th><th>고점대비하락률</th>
+          </tr>
+        </thead>
+        <tbody id="weeklyReversal">
+          <tr><td colspan="14" class="muted">아직 검색 결과가 없습니다.</td></tr>
         </tbody>
       </table>
     </div>
@@ -331,6 +397,13 @@ function renderDashboard() {
     const buyDownload = document.querySelector("#buyDownload");
     const buyStatus = document.querySelector("#buyStatus");
     const buyRecommendations = document.querySelector("#buyRecommendations");
+    const weeklyMinCap = document.querySelector("#weeklyMinCap");
+    const weeklyGrow = document.querySelector("#weeklyGrow");
+    const weeklyDrop = document.querySelector("#weeklyDrop");
+    const weeklyRun = document.querySelector("#weeklyRun");
+    const weeklyDownload = document.querySelector("#weeklyDownload");
+    const weeklyStatus = document.querySelector("#weeklyStatus");
+    const weeklyReversal = document.querySelector("#weeklyReversal");
     const fmt = new Intl.NumberFormat("ko-KR");
     let realtimeTimer = null;
     let realtimeOn = false;
@@ -338,6 +411,13 @@ function renderDashboard() {
     const pct = (n) => Number.isFinite(n) ? n.toFixed(2) + "%" : "";
     const price = (n) => Number.isFinite(n) ? fmt.format(Math.round(n)) : "";
     const params = () => new URLSearchParams(new FormData(form));
+    const flowCell = (n) => {
+      if (!Number.isFinite(n)) return "<td class='muted'>-</td>";
+      const rounded = Math.round(n);
+      const cls = rounded > 0 ? "up" : rounded < 0 ? "dn" : "muted";
+      const sign = rounded > 0 ? "+" : "";
+      return "<td class='" + cls + "'>" + sign + fmt.format(rounded) + "</td>";
+    };
 
     function setupReportResizer() {
       if (!reportGrid || reportGrid.dataset.resizerReady === "1") return;
@@ -432,6 +512,9 @@ function renderDashboard() {
         "<td>" + pct(row.lowToMa5Pct) + "</td>" +
         "<td>" + row.hit + "</td>" +
         "<td>" + price(row.volume) + "</td>" +
+        flowCell(row.individualEok) +
+        flowCell(row.institutionEok) +
+        flowCell(row.foreignEok) +
       "</tr>";
     }
 
@@ -509,6 +592,68 @@ function renderDashboard() {
       }
     }
 
+    function weeklyParams() {
+      const p = new URLSearchParams();
+      p.set("minMarketCapEok", weeklyMinCap.value || "3000");
+      p.set("growWeeks", weeklyGrow.value || "3");
+      p.set("dropPct", weeklyDrop.value || "20");
+      return p;
+    }
+
+    function syncWeeklyDownload() {
+      weeklyDownload.href = "/api/weekly-reversal.csv?" + weeklyParams().toString();
+    }
+
+    function weeklyRowHtml(row) {
+      const url = "https://finance.naver.com/item/main.naver?code=" + row.code;
+      return "<tr>" +
+        "<td><a href='" + url + "' target='_blank' rel='noreferrer'>" + row.name + "</a></td>" +
+        "<td>" + row.code + "</td>" +
+        "<td>" + row.market + "</td>" +
+        "<td>" + price(row.marketCapEok) + "</td>" +
+        "<td>" + row.weekDate + "</td>" +
+        "<td>" + price(row.weekOpen) + "</td>" +
+        "<td>" + price(row.weekClose) + "</td>" +
+        "<td class='up'>" + pct(row.weekRisePct) + "</td>" +
+        "<td class='dn'>" + pct(row.body3wPct) + "</td>" +
+        "<td class='dn'>" + pct(row.body2wPct) + "</td>" +
+        "<td class='dn'>" + pct(row.body1wPct) + "</td>" +
+        "<td>" + price(row.highestHigh) + "</td>" +
+        "<td>" + price(row.declineLow) + "</td>" +
+        "<td class='dn'>" + pct(row.drawdownPct) + "</td>" +
+      "</tr>";
+    }
+
+    function renderWeeklyReversal(rows) {
+      weeklyReversal.innerHTML = rows.length
+        ? rows.map(weeklyRowHtml).join("")
+        : "<tr><td colspan='14' class='muted'>조건에 맞는 종목이 없습니다.</td></tr>";
+    }
+
+    async function runWeeklyReversal() {
+      syncWeeklyDownload();
+      weeklyRun.disabled = true;
+      weeklyStatus.textContent = "주봉 데이터를 읽는 중입니다. 시총 후보를 모은 뒤 개별 주봉을 확인합니다...";
+      weeklyReversal.innerHTML = "<tr><td colspan='14' class='muted'>로딩 중</td></tr>";
+      try {
+        const started = performance.now();
+        const res = await fetch("/api/weekly-reversal?" + weeklyParams().toString());
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        const seconds = ((performance.now() - started) / 1000).toFixed(1);
+        renderWeeklyReversal(data.results);
+        weeklyStatus.textContent =
+          "후보 " + fmt.format(data.scanned) + "개 검사, 결과 " +
+          fmt.format(data.results.length) + "개 / " + seconds + "초 / 서버시각 " +
+          new Date(data.updatedAt).toLocaleString("ko-KR");
+      } catch (error) {
+        weeklyStatus.textContent = "주봉 반등 검색 오류: " + error.message;
+        weeklyReversal.innerHTML = "<tr><td colspan='14' class='muted'>검색 실패</td></tr>";
+      } finally {
+        weeklyRun.disabled = false;
+      }
+    }
+
     async function runReports() {
       reportRun.disabled = true;
       reportStatus.textContent = "오늘 리포트를 수집하고 PDF를 다운로드하는 중입니다...";
@@ -534,7 +679,7 @@ function renderDashboard() {
       statusEl.textContent = source === "realtime"
         ? "실시간 검색 중입니다..."
         : "검색 중입니다...";
-      tbody.innerHTML = "<tr><td colspan='18' class='muted'>로딩 중</td></tr>";
+      tbody.innerHTML = "<tr><td colspan='21' class='muted'>로딩 중</td></tr>";
 
       try {
         const started = performance.now();
@@ -549,10 +694,10 @@ function renderDashboard() {
           new Date(data.updatedAt).toLocaleString("ko-KR") + realtimeText;
         tbody.innerHTML = data.results.length
           ? data.results.map(rowHtml).join("")
-          : "<tr><td colspan='18' class='muted'>조건에 맞는 종목이 없습니다.</td></tr>";
+          : "<tr><td colspan='21' class='muted'>조건에 맞는 종목이 없습니다.</td></tr>";
       } catch (error) {
         statusEl.textContent = "오류: " + error.message;
-        tbody.innerHTML = "<tr><td colspan='18' class='muted'>검색 실패</td></tr>";
+        tbody.innerHTML = "<tr><td colspan='21' class='muted'>검색 실패</td></tr>";
       } finally {
         run.disabled = false;
       }
@@ -575,6 +720,8 @@ function renderDashboard() {
     reportRun.addEventListener("click", runReports);
     buyRun.addEventListener("click", runBuyRecommendations);
     buyDate.addEventListener("input", syncBuyDownload);
+    weeklyRun.addEventListener("click", runWeeklyReversal);
+    [weeklyMinCap, weeklyGrow, weeklyDrop].forEach((el) => el.addEventListener("input", syncWeeklyDownload));
     emailForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       const email = document.querySelector("#email").value.trim();
@@ -597,6 +744,7 @@ function renderDashboard() {
     setupReportResizer();
     buyDate.value = todayInputValue();
     syncBuyDownload();
+    syncWeeklyDownload();
     loadRecipients().catch(() => {
       recipientsEl.textContent = "수신자 목록을 불러오지 못했습니다.";
     });

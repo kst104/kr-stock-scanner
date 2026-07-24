@@ -5,6 +5,7 @@ const { URL } = require("url");
 const { renderDashboard } = require("./dashboard-ui");
 const { runReportCollection } = require("./report-scraper");
 const { fetchBuyRecommendations } = require("./wise-report");
+const { fetchInvestorFlow } = require("./investor-flow");
 
 const PORT = process.env.PORT || 3000;
 const RECIPIENTS_FILE = path.join(__dirname, "recipients.json");
@@ -96,11 +97,7 @@ async function fetchStocksByMarketCap(minMarketCapEok) {
   return result;
 }
 
-async function fetchChart(code, count) {
-  const url =
-    `https://fchart.stock.naver.com/sise.nhn?symbol=${code}` +
-    `&timeframe=day&count=${count}&requestType=0`;
-  const xml = await cached(`chart:${code}:${count}`, () => fetchText(url, "euc-kr"));
+function parseChartXml(xml) {
   return [...xml.matchAll(/<item data="([^"]+)"/g)].map((match) => {
     const [date, open, high, low, close, volume] = match[1].split("|");
     return {
@@ -112,6 +109,81 @@ async function fetchChart(code, count) {
       volume: Number(volume),
     };
   });
+}
+
+async function fetchChart(code, count) {
+  const url =
+    `https://fchart.stock.naver.com/sise.nhn?symbol=${code}` +
+    `&timeframe=day&count=${count}&requestType=0`;
+  const xml = await cached(`chart:${code}:${count}`, () => fetchText(url, "euc-kr"));
+  return parseChartXml(xml);
+}
+
+async function fetchWeeklyChart(code, count) {
+  const url =
+    `https://fchart.stock.naver.com/sise.nhn?symbol=${code}` +
+    `&timeframe=week&count=${count}&requestType=0`;
+  const xml = await cached(`chartW:${code}:${count}`, () => fetchText(url, "euc-kr"));
+  return parseChartXml(xml);
+}
+
+// 주봉 반등 후보 판정.
+// 조건: (1) 직전 growWeeks(기본 3)주가 모두 음봉이고 몸통이 매주 커짐(최근 주가 가장 큼),
+//       (2) 그 하락 직전 고점 대비 저점이 dropPct(기본 20%) 이상 하락,
+//       (3) 금주(최신 봉)가 처음으로 양봉.
+function evaluateWeekly(stock, chart, options) {
+  const { growWeeks, dropPct, highWeeks } = options;
+  const n = chart.length;
+  if (n < growWeeks + 2) return null;
+
+  const currentIndex = n - 1;
+  const current = chart[currentIndex];
+  if (!current || current.open <= 0 || current.close <= 0) return null;
+  // (3) 금주 양봉
+  if (!(current.close > current.open)) return null;
+
+  const bodyLen = (row) => Math.abs(row.close - row.open);
+  const isBearish = (row) => row.close < row.open;
+
+  // (1) 직전 growWeeks주: 모두 음봉이며 몸통이 최근으로 올수록 커짐.
+  //   down[0] = 직전 주(가장 최근), down[growWeeks-1] = 가장 오래된 주.
+  const down = [];
+  for (let i = 0; i < growWeeks; i += 1) {
+    const row = chart[currentIndex - 1 - i];
+    if (!row || row.open <= 0 || row.close <= 0) return null;
+    if (!isBearish(row)) return null;
+    down.push(row);
+  }
+  for (let i = 0; i < growWeeks - 1; i += 1) {
+    // 최근 주 몸통이 그 이전 주보다 커야 한다(연속 증가).
+    if (!(bodyLen(down[i]) > bodyLen(down[i + 1]))) return null;
+  }
+
+  // (2) 고점 대비 하락률: 하락 시작 이전 구간의 최고 고점 대비, 하락 구간 최저 저점.
+  const downStart = currentIndex - growWeeks; // 가장 오래된 하락 주의 인덱스
+  const peakStart = Math.max(0, downStart - highWeeks);
+  const peakSlice = chart.slice(peakStart, downStart + 1);
+  if (!peakSlice.length) return null;
+  const highestHigh = Math.max(...peakSlice.map((row) => row.high));
+  const declineLow = Math.min(...down.map((row) => row.low));
+  if (!Number.isFinite(highestHigh) || highestHigh <= 0) return null;
+  const drawdownPct = ((highestHigh - declineLow) / highestHigh) * 100;
+  if (drawdownPct < dropPct) return null;
+
+  const bodyPct = (row) => (row.open > 0 ? ((row.open - row.close) / row.open) * 100 : NaN);
+  return {
+    ...stock,
+    weekDate: current.date,
+    weekOpen: current.open,
+    weekClose: current.close,
+    weekRisePct: ((current.close - current.open) / current.open) * 100,
+    body3wPct: bodyPct(down[2] || down[down.length - 1]),
+    body2wPct: bodyPct(down[1] || down[down.length - 1]),
+    body1wPct: bodyPct(down[0]),
+    highestHigh,
+    declineLow,
+    drawdownPct,
+  };
 }
 
 function movingAverage(rows, length) {
@@ -234,14 +306,55 @@ async function scan(params) {
     }
   });
 
+  const results = rows
+    .filter(Boolean)
+    .sort((a, b) => b.triggerRisePct - a.triggerRisePct)
+    .slice(0, 300);
+
+  // 표시 대상(필터 통과 종목)에 한해 개인/기관/외인 순매수(억원)를 KRX에서 붙인다.
+  // 실패해도 값만 비고 스캔은 계속되도록 fetchInvestorFlow 내부에서 방어한다.
+  await mapLimit(results, 8, async (row) => {
+    const flow = await fetchInvestorFlow(row.code);
+    Object.assign(row, flow);
+    return row;
+  });
+
   return {
     options,
     scanned: stocks.length,
     updatedAt: new Date().toISOString(),
-    results: rows
-      .filter(Boolean)
-      .sort((a, b) => b.triggerRisePct - a.triggerRisePct)
-      .slice(0, 300),
+    results,
+  };
+}
+
+async function scanWeeklyReversal(params) {
+  const options = {
+    minMarketCapEok: Number(params.get("minMarketCapEok") || 3000),
+    growWeeks: Math.max(2, Number(params.get("growWeeks") || 3)),
+    dropPct: Number(params.get("dropPct") || 20),
+    highWeeks: Number(params.get("highWeeks") || 26),
+  };
+  options.chartCount = Math.max(60, options.highWeeks + options.growWeeks + 10);
+  const stocks = await fetchStocksByMarketCap(options.minMarketCapEok);
+  const rows = await mapLimit(stocks, 12, async (stock) => {
+    try {
+      const chart = await fetchWeeklyChart(stock.code, options.chartCount);
+      return evaluateWeekly(stock, chart, options);
+    } catch (error) {
+      return null;
+    }
+  });
+
+  const results = rows
+    .filter(Boolean)
+    .sort((a, b) => b.drawdownPct - a.drawdownPct)
+    .slice(0, 300);
+
+  return {
+    options,
+    scanned: stocks.length,
+    updatedAt: new Date().toISOString(),
+    results,
   };
 }
 
@@ -290,10 +403,19 @@ function scanToCsv(data) {
     ["lowToMa5Pct", "저가-5MA"],
     ["hit", "터치"],
     ["volume", "거래량"],
+    ["individualEok", "개인순매수(억)"],
+    ["institutionEok", "기관순매수(억)"],
+    ["foreignEok", "외인순매수(억)"],
   ];
   const header = columns.map(([, label]) => csvValue(label)).join(",");
   const rows = data.results.map((row) =>
-    columns.map(([key]) => csvValue(row[key])).join(",")
+    columns.map(([key]) => {
+      const value = row[key];
+      if (typeof value === "number") {
+        return csvValue(Number.isFinite(value) ? Math.round(value) : "");
+      }
+      return csvValue(value);
+    }).join(",")
   );
   return `\uFEFF${[header, ...rows].join("\r\n")}\r\n`;
 }
@@ -309,6 +431,36 @@ function buyRecommendationsToCsv(data) {
     columns.map(([key]) => csvValue(row[key])).join(",")
   );
   return `\uFEFF${[header, ...rows].join("\r\n")}\r\n`;
+}
+
+function weeklyReversalToCsv(data) {
+  const columns = [
+    ["name", "종목"],
+    ["code", "코드"],
+    ["market", "시장"],
+    ["marketCapEok", "시총(억원)"],
+    ["weekDate", "금주"],
+    ["weekOpen", "금주시가"],
+    ["weekClose", "금주종가"],
+    ["weekRisePct", "금주상승률"],
+    ["body3wPct", "3주전몸통%"],
+    ["body2wPct", "2주전몸통%"],
+    ["body1wPct", "1주전몸통%"],
+    ["highestHigh", "직전고점"],
+    ["declineLow", "하락저점"],
+    ["drawdownPct", "고점대비하락률"],
+  ];
+  const header = columns.map(([, label]) => csvValue(label)).join(",");
+  const rows = data.results.map((row) =>
+    columns.map(([key]) => {
+      const value = row[key];
+      if (typeof value === "number") {
+        return csvValue(Number.isFinite(value) ? Math.round(value * 100) / 100 : "");
+      }
+      return csvValue(value);
+    }).join(",")
+  );
+  return `﻿${[header, ...rows].join("\r\n")}\r\n`;
 }
 
 function noStoreHeaders(headers = {}) {
@@ -574,6 +726,21 @@ function startServer() {
         res.end(scanToCsv(data));
         return;
       }
+      if (url.pathname === "/api/weekly-reversal") {
+        const data = await scanWeeklyReversal(url.searchParams);
+        res.writeHead(200, noStoreHeaders({ "Content-Type": "application/json; charset=utf-8" }));
+        res.end(JSON.stringify(data));
+        return;
+      }
+      if (url.pathname === "/api/weekly-reversal.csv") {
+        const data = await scanWeeklyReversal(url.searchParams);
+        res.writeHead(200, noStoreHeaders({
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": "attachment; filename=\"weekly-reversal.csv\"",
+        }));
+        res.end(weeklyReversalToCsv(data));
+        return;
+      }
       if (url.pathname === "/api/buy-recommendations") {
         const data = await fetchBuyRecommendations(url.searchParams);
         res.writeHead(200, noStoreHeaders({ "Content-Type": "application/json; charset=utf-8" }));
@@ -630,5 +797,7 @@ if (require.main === module) {
 
 module.exports = {
   scan,
+  scanWeeklyReversal,
+  evaluateWeekly,
   startServer,
 };
