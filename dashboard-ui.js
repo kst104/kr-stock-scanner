@@ -30,6 +30,33 @@ function renderDashboard() {
       border-bottom: 1px solid var(--line);
       background: #fff;
     }
+    .headerTop {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .headerNav {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .navLink {
+      display: inline-grid;
+      place-items: center;
+      height: 34px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--accent2);
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .navLink:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
     h1 {
       margin: 0 0 4px;
       font-size: 22px;
@@ -230,8 +257,15 @@ function renderDashboard() {
 </head>
 <body>
   <header>
-    <h1>KR Stock Scanner</h1>
-    <div class="sub">오늘 제외 최근 20거래일에서 처음 발생한 10% 이상 양봉만 기준봉으로 인정하고, 이후 5일선 이탈 없이 금일 저가가 3/5일선 근처인 종목을 검색합니다.</div>
+    <div class="headerTop">
+      <div>
+        <h1>KR Stock Scanner</h1>
+        <div class="sub">오늘 제외 최근 20거래일에서 처음 발생한 10% 이상 양봉만 기준봉으로 인정하고, 이후 5일선 이탈 없이 금일 저가가 3/5일선 근처인 종목을 검색합니다.</div>
+      </div>
+      <nav class="headerNav">
+        <a class="navLink" href="https://drks-choice-analytics.promokorea.workers.dev/" target="_blank" rel="noreferrer">DRKS Choice Analytics ↗</a>
+      </nav>
+    </div>
   </header>
   <main>
     <form class="toolbar" id="form">
