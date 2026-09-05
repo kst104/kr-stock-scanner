@@ -30,6 +30,7 @@ const state = {
   events: [],
   deep: [],
   themes: [],
+  themeSeries: null,
   profile: null,
   dirty: true,
 };
@@ -120,6 +121,7 @@ async function refreshAux() {
     ]);
     state.profile = p;
     state.themes = th.themes || [];
+    state.themeSeries = th.series || null;
     state.dirty = true;
   } catch (e) {}
 }
@@ -348,7 +350,78 @@ function drawDomRow(ctx, w, y, rh, price, size, maxS, color, isAsk) {
   ctx.fillText(comma(size), w - 84, y + rh / 2 + 4);
 }
 
+function renderThemeFlow() {
+  const cv = $('#themeFlowCanvas');
+  if (!cv) return;
+  const { ctx, w, h } = setupCanvas(cv);
+  ctx.clearRect(0, 0, w, h);
+  const padL = 58, padR = 12, padT = 10, padB = 22;
+  const x0 = padL, x1 = w - padR, y0 = padT, y1 = h - padB;
+
+  // x축: 장 시작(09:00)~마감(15:30) 하루 전체 고정
+  const base = new Date(state.date + 'T09:00:00').getTime();
+  const dayStart = base, dayEnd = base + 6.5 * 3600 * 1000;
+  const cutoff = currentCutoff();
+  const pts = ((state.themeSeries && state.themeSeries.points) || [])
+    .filter((p) => p.ts <= cutoff);
+  const tx = (ts) => x0 + (Math.min(Math.max(ts, dayStart), dayEnd) - dayStart) / (dayEnd - dayStart) * (x1 - x0);
+
+  let maxV = 1;
+  for (const p of pts) maxV = Math.max(maxV, p.cum_buy, p.cum_sell);
+  const ty = (v) => y1 - (v / maxV) * (y1 - y0);
+
+  // 격자 + y 라벨
+  ctx.font = '10px system-ui, sans-serif';
+  ctx.textBaseline = 'middle';
+  for (let g = 0; g <= 4; g++) {
+    const v = maxV * g / 4, y = ty(v);
+    ctx.strokeStyle = 'rgba(255,255,255,.06)';
+    ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+    ctx.fillStyle = '#7a8698'; ctx.textAlign = 'right';
+    ctx.fillText(won(v), x0 - 6, y);
+  }
+  // x축 시간 라벨 (매 시)
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let hh = 9; hh <= 15; hh++) {
+    const ts = new Date(state.date + `T${String(hh).padStart(2, '0')}:00:00`).getTime();
+    const x = tx(ts);
+    ctx.strokeStyle = 'rgba(255,255,255,.05)';
+    ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke();
+    ctx.fillStyle = '#7a8698';
+    ctx.fillText(`${hh}시`, x, y1 + 4);
+  }
+
+  if (!pts.length) {
+    ctx.fillStyle = '#7a8698'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('데이터 없음 — 장중에 매수·매도 누적이 채워집니다', (x0 + x1) / 2, (y0 + y1) / 2);
+    $('#flowNet').textContent = '';
+    return;
+  }
+
+  const line = (key, color) => {
+    ctx.strokeStyle = color; ctx.lineWidth = 2;
+    ctx.beginPath();
+    pts.forEach((p, i) => {
+      const x = tx(p.ts), y = ty(p[key]);
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    });
+    ctx.stroke();
+    // 끝점 값 라벨
+    const last = pts[pts.length - 1];
+    const lx = tx(last.ts), ly = ty(last[key]);
+    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(lx, ly, 3, 0, 7); ctx.fill();
+  };
+  line('cum_sell', '#3b82f6');   // 매도 = 파랑
+  line('cum_buy', '#ef3b4e');    // 매수 = 빨강
+
+  const last = pts[pts.length - 1];
+  const net = last.cum_buy - last.cum_sell;
+  $('#flowNet').innerHTML =
+    `· 순매수 <b style="color:${net >= 0 ? '#ef3b4e' : '#3b82f6'}">${net >= 0 ? '+' : ''}${won(net)}</b>`;
+}
+
 function renderThemes() {
+  renderThemeFlow();
   const rows = state.themes;
   let maxAbs = 1;
   for (const r of rows) maxAbs = Math.max(maxAbs, Math.abs(r.net));

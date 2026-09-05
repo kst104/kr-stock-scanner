@@ -150,7 +150,11 @@ async def api_dom_series(code: str, date: str | None = None, limit: int = 3000):
 @app.get("/api/themes")
 async def api_themes(date: str | None = None):
     date = date or kis.session_date_now()
-    return {"themes": analytics.theme_flow(date, symbols_mod.load())}
+    syms = symbols_mod.load()
+    return {
+        "themes": analytics.theme_flow(date, syms),
+        "series": analytics.market_flow_series(date, syms),
+    }
 
 
 @app.get("/api/events")

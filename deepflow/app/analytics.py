@@ -101,6 +101,38 @@ def theme_flow(date: str, symbols: list[dict]) -> list[dict]:
     return out
 
 
+def market_flow_series(date: str, symbols: list[dict],
+                       bucket_ms: int = 60_000) -> dict[str, Any]:
+    """전 종목 합산 매수/매도 거래대금 — 하루 전체를 bucket 간격으로 누적.
+
+    테마 종합 화면의 '하루종일 매수·매도 그래프'용. 각 포인트는 해당 버킷의
+    매수/매도 거래대금과, 장 시작부터의 누적(cum_buy/cum_sell)을 함께 담는다.
+    """
+    codes = [s["code"] for s in symbols]
+    buckets: dict[int, dict[str, float]] = {}
+    for code in codes:
+        for t in store.ticks(code, date):
+            b = (int(t["ts"]) // bucket_ms) * bucket_ms
+            slot = buckets.setdefault(b, {"buy": 0.0, "sell": 0.0})
+            if t["side"] == "sell":
+                slot["sell"] += t["amount"]
+            elif t["side"] == "buy":
+                slot["buy"] += t["amount"]
+    points: list[dict] = []
+    cum_buy = cum_sell = 0.0
+    for b in sorted(buckets):
+        cum_buy += buckets[b]["buy"]
+        cum_sell += buckets[b]["sell"]
+        points.append({
+            "ts": b,
+            "buy": round(buckets[b]["buy"], 0),
+            "sell": round(buckets[b]["sell"], 0),
+            "cum_buy": round(cum_buy, 0),
+            "cum_sell": round(cum_sell, 0),
+        })
+    return {"bucket_ms": bucket_ms, "points": points}
+
+
 # --------------------------------------------------------------------- markers
 def detect_events(code: str, date: str, session_date: str | None = None) -> list[dict]:
     """흡수(absorption) / 스탑런(stop-run) / 급증(surge) 근사 탐지.

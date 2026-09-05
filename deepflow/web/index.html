@@ -82,6 +82,17 @@
 
     <!-- Themes -->
     <section class="view" id="view-themes">
+      <div class="flow-chart">
+        <div class="flow-head">
+          <span class="pnm">전 종목 매수·매도 누적 거래대금 — 하루 전체</span>
+          <span class="flow-legend">
+            <span class="dot" style="background:#ef3b4e"></span>매수
+            <span class="dot" style="background:#3b82f6"></span>매도
+            <b id="flowNet" class="muted"></b>
+          </span>
+        </div>
+        <canvas id="themeFlowCanvas"></canvas>
+      </div>
       <div class="table-scroll">
         <table id="themeTable">
           <thead><tr>
