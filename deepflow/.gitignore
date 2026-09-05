@@ -1,0 +1,10 @@
+# 가상환경 / 비밀정보 / 로컬 데이터
+.venv/
+.env
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/symbols.json
+data/themes.json
+__pycache__/
+*.pyc
